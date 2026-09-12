@@ -24,6 +24,8 @@ target_include_directories(Ecosystem PRIVATE
     ${DXLIB_INCLUDE_DIR}
 )
 
+target_compile_definitions(Ecosystem PRIVATE NOMINMAX)
+
 if(DXLIB_LIBRARY_DIR)
     target_link_directories(Ecosystem PRIVATE ${DXLIB_LIBRARY_DIR})
 endif()

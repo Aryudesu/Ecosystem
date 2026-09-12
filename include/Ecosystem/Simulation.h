@@ -77,6 +77,9 @@ struct Population {
 
 class Simulation {
 public:
+    using AnimalArray = std::array<Animal, SimulationConfig::MaxObjects>;
+    using GrassArray = std::array<Grass, SimulationConfig::MaxObjects>;
+
     explicit Simulation(mygame::Random& random, SimulationConfig config = {});
 
     void Reset();
@@ -85,11 +88,10 @@ public:
 
     [[nodiscard]] Population GetPopulation() const;
     [[nodiscard]] unsigned long long Frame() const { return frame_; }
+    [[nodiscard]] const AnimalArray& Animals() const { return animals_; }
+    [[nodiscard]] const GrassArray& GrassItems() const { return grass_; }
 
 private:
-    using AnimalArray = std::array<Animal, SimulationConfig::MaxObjects>;
-    using GrassArray = std::array<Grass, SimulationConfig::MaxObjects>;
-
     void UpdateHerbivore(std::size_t index);
     void UpdateCarnivore(std::size_t index);
     void UpdateState(Animal& animal);

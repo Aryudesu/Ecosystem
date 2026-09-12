@@ -8,7 +8,7 @@ include(FetchContent)
 FetchContent_Declare(
     myGameUtil
     GIT_REPOSITORY https://github.com/Aryudesu/myGameUtil.git
-    GIT_TAG feature/core-game-utilities
+    GIT_TAG cd949148e998c29cfac92dcee8cd7be1f06106a6
 )
 FetchContent_MakeAvailable(myGameUtil)
 

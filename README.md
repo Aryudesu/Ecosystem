@@ -53,21 +53,10 @@
 `Aryudesu/myGameUtil` の `feature/core-game-utilities` ブランチの現在のコミットを固定して利用しています。
 
 - `mygame::Random`
-  - 初期配置
-  - 移動方向
-  - 繁殖までに必要な食事回数
-  - 死亡地点周辺への草生成
 - `mygame::InputManager`
-  - ポーズ
-  - 1フレーム実行
-  - リセット
-  - シミュレーション速度変更
 - `mygame::Vec2` (`Collision2D`)
-  - 生物・草の座標
 - `mygame::ImageManager`
-  - スプライトシートの分割読み込みと描画
 - `mygame::FileUtil`
-  - 起動時の `assets/img.bmp` 生成
 
 CMakeでは `FetchContent` で取得します。
 

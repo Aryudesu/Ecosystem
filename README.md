@@ -32,9 +32,25 @@
 
 旧ソースから数値を確定できなかったエネルギー量・消費量・通常移動速度・草の自然再生間隔などは `SimulationConfig` にまとめ、あとから容易に調整できるようにしています。
 
+## Graphics
+
+旧HSP版の `img.bmp` に相当する24x24ドット絵を新しく作成しています。
+
+- 0: 草
+- 1: 草食（青白のウサギ風）
+- 2: 肉食（赤茶のキツネ風）
+
+スプライトの元データは `src/SpriteAsset.cpp` のテキストパターンとして保持し、起動時に72x24 / 24bit BMPの `assets/img.bmp` を生成します。
+
+生成したBMPは `mygame::ImageManager::LoadDivided` で3分割して読み込みます。背景色 `(255, 0, 255)` は透過色として扱います。
+
+画像読み込みに失敗した場合は、従来の円描画へ自動的にフォールバックします。
+
+空腹状態はオレンジ枠、繁殖状態は紫枠で表示します。
+
 ## myGameUtil
 
-以下を `Aryudesu/myGameUtil` の `feature/core-game-utilities` ブランチから利用しています。
+`Aryudesu/myGameUtil` の `feature/core-game-utilities` ブランチの現在のコミットを固定して利用しています。
 
 - `mygame::Random`
   - 初期配置
@@ -46,6 +62,12 @@
   - 1フレーム実行
   - リセット
   - シミュレーション速度変更
+- `mygame::Vec2` (`Collision2D`)
+  - 生物・草の座標
+- `mygame::ImageManager`
+  - スプライトシートの分割読み込みと描画
+- `mygame::FileUtil`
+  - 起動時の `assets/img.bmp` 生成
 
 CMakeでは `FetchContent` で取得します。
 
@@ -59,18 +81,6 @@ CMakeでは `FetchContent` で取得します。
 | `UP` | シミュレーション速度を上げる |
 | `DOWN` | シミュレーション速度を下げる |
 | `ESC` | 終了 |
-
-## 表示
-
-現在は旧HSP版の `img.bmp` をリポジトリへ移していないため、依存素材なしで起動できるよう図形描画にしています。
-
-- 緑: 草
-- 青: 草食
-- 赤: 肉食
-- オレンジ枠: 空腹
-- 紫枠: 繁殖状態
-
-旧画像素材を追加した場合でも、`Simulation` 側のロジックを変えず描画だけ差し替えられる構成です。
 
 ## Build
 
@@ -101,12 +111,17 @@ cmake --build build --config Release
 
 ```text
 Ecosystem/
-├─ include/Ecosystem/Simulation.h
+├─ include/Ecosystem/
+│  ├─ Renderer.h
+│  ├─ Simulation.h
+│  └─ SpriteAsset.h
 ├─ src/
 │  ├─ main.cpp
-│  └─ Simulation.cpp
+│  ├─ Renderer.cpp
+│  ├─ Simulation.cpp
+│  └─ SpriteAsset.cpp
 ├─ CMakeLists.txt
 └─ README.md
 ```
 
-`Simulation` は生態系ロジック、`main.cpp` はDxLibのメインループ・入力・表示だけを担当します。
+`Simulation` は生態系ロジック、`Renderer` / `SpriteAsset` は描画とスプライト生成、`main.cpp` はDxLibのメインループ・入力を担当します。

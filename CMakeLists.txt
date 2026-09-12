@@ -15,6 +15,8 @@ FetchContent_MakeAvailable(myGameUtil)
 add_executable(Ecosystem WIN32
     src/main.cpp
     src/Simulation.cpp
+    src/Renderer.cpp
+    src/SpriteAsset.cpp
 )
 
 target_include_directories(Ecosystem PRIVATE

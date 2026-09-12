@@ -122,7 +122,7 @@ constexpr Rgb ColorFor(char pixel) {
     case 'r': return {125, 45, 35};
     case 'R': return {200, 75, 55};
     case 'o': return {235, 130, 70};
-    default:  return {255, 0, 255}; // transparency key
+    default:  return {255, 0, 255};
     }
 }
 
@@ -164,8 +164,8 @@ bool WriteSpriteSheetBmp() {
     Put32(bytes, 2, static_cast<std::uint32_t>(FileSize));
     Put32(bytes, 10, static_cast<std::uint32_t>(HeaderSize));
     Put32(bytes, 14, 40);
-    Put32(bytes, 18, SheetWidth);
-    Put32(bytes, 22, SheetHeight);
+    Put32(bytes, 18, static_cast<std::uint32_t>(SheetWidth));
+    Put32(bytes, 22, static_cast<std::uint32_t>(SheetHeight));
     Put16(bytes, 26, 1);
     Put16(bytes, 28, 24);
     Put32(bytes, 34, static_cast<std::uint32_t>(PixelBytes));

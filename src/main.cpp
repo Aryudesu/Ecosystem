@@ -1,4 +1,6 @@
+#include "Ecosystem/Renderer.h"
 #include "Ecosystem/Simulation.h"
+#include "Ecosystem/SpriteAsset.h"
 
 #include <DxLib.h>
 #include <mygame/input/InputManager.h>
@@ -15,6 +17,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
     if (DxLib_Init() == -1) return -1;
     SetDrawScreen(DX_SCREEN_BACK);
     SetWaitVSyncFlag(TRUE);
+
+    ecosystem::graphics::InitializeSprites();
 
     mygame::Random random;
     auto& input = mygame::InputManager::GetInstance();
@@ -43,8 +47,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
         ClearDrawScreen();
         DrawBox(0, 0, ecosystem::SimulationConfig::Width, ecosystem::SimulationConfig::Height,
-            GetColor(245, 248, 240), TRUE);
-        simulation.Draw();
+            GetColor(20, 28, 24), TRUE);
+        ecosystem::graphics::DrawSimulation(simulation);
 
         const auto population = simulation.GetPopulation();
         SetDrawBlendMode(DX_BLENDMODE_ALPHA, 190);
@@ -63,6 +67,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
         ScreenFlip();
     }
 
+    ecosystem::graphics::ShutdownSprites();
     DxLib_End();
     return 0;
 }

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <mygame/collision/Collision2D.h>
 #include <mygame/random/Random.h>
 
 #include <array>
@@ -7,10 +8,7 @@
 
 namespace ecosystem {
 
-struct Vec2 {
-    float x = 0.0f;
-    float y = 0.0f;
-};
+using Vec2 = mygame::Vec2;
 
 enum class LifeState {
     Inactive = 0,

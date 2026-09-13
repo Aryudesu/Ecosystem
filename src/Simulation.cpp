@@ -185,7 +185,14 @@ void Simulation::UpdateCarnivore(std::size_t index) {
     }
 
     if (animal.state == LifeState::Hungry) {
-        const int preyIndex = FindNearestAnimal(animal, Species::Herbivore, config_.carnivorePreySenseRadius);
+        float preySenseRadius = config_.carnivorePreySenseRadius;
+        if (animal.energy <= config_.carnivoreCriticalEnergy) {
+            preySenseRadius = config_.carnivoreCriticalPreySenseRadius;
+        } else if (animal.energy <= config_.carnivoreDesperateEnergy) {
+            preySenseRadius = config_.carnivoreDesperatePreySenseRadius;
+        }
+
+        const int preyIndex = FindNearestAnimal(animal, Species::Herbivore, preySenseRadius);
         if (preyIndex >= 0) {
             auto& prey = animals_[static_cast<std::size_t>(preyIndex)];
             if (DistanceSquared(animal.position, prey.position) <= config_.interactionRadius * config_.interactionRadius) {

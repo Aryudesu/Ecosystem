@@ -74,6 +74,9 @@ struct DeathEffect {
 struct SimulationConfig {
     static constexpr int Width = 640;
     static constexpr int Height = 480;
+    static constexpr int InfoPanelWidth = 320;
+    static constexpr int WindowWidth = Width + InfoPanelWidth;
+    static constexpr int WindowHeight = Height;
     static constexpr std::size_t MaxObjects = 300;
 
     int initialCarnivores = 10;

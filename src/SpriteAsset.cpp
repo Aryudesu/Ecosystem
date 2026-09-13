@@ -22,7 +22,7 @@ constexpr const char* SpriteSheetPath = "assets/img.bmp";
 using Pattern = std::array<std::string_view, CellSize>;
 
 // Sprite sheet layout (4 x 3):
-// row 0: Grass, Seed, -, -
+// row 0: Grass, Seed, Herbivore Dead, Carnivore Dead
 // row 1: Herbivore Walk1, Walk2, Run1, Run2
 // row 2: Carnivore Walk1, Walk2, Run1, Run2
 
@@ -215,6 +215,24 @@ Rgb AnimalPosePixel(const Pattern& pattern, int x, int y, AnimalPose pose) {
     return PatternPixel(pattern, sourceX, sourceY);
 }
 
+Rgb DeadAnimalPixel(const Pattern& pattern, int x, int y) {
+    // Rotate the standing sprite 90 degrees so it reads as a fallen body.
+    const int sourceX = y;
+    const int sourceY = CellSize - 1 - x;
+    const Rgb source = PatternPixel(pattern, sourceX, sourceY);
+
+    if (source.r == 255 && source.g == 0 && source.b == 255) {
+        return source;
+    }
+
+    const unsigned int luminance =
+        static_cast<unsigned int>(source.r) * 30u +
+        static_cast<unsigned int>(source.g) * 59u +
+        static_cast<unsigned int>(source.b) * 11u;
+    const std::uint8_t gray = static_cast<std::uint8_t>(((luminance / 100u) + 110u) / 2u);
+    return {gray, gray, gray};
+}
+
 Rgb SheetPixel(int x, int y) {
     const int column = x / CellSize;
     const int row = y / CellSize;
@@ -225,6 +243,8 @@ Rgb SheetPixel(int x, int y) {
     switch (cell) {
     case 0: return PatternPixel(GrassPattern, localX, localY);
     case 1: return PatternPixel(SeedPattern, localX, localY);
+    case 2: return DeadAnimalPixel(HerbivorePattern, localX, localY);
+    case 3: return DeadAnimalPixel(CarnivorePattern, localX, localY);
 
     case 4: return AnimalPosePixel(HerbivorePattern, localX, localY, AnimalPose::Walk1);
     case 5: return AnimalPosePixel(HerbivorePattern, localX, localY, AnimalPose::Walk2);

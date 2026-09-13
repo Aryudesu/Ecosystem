@@ -50,6 +50,15 @@ void DrawSimulation(const Simulation& simulation) {
             static_cast<int>(grass.position.y));
     }
 
+    // Draw corpses below living animals so an active animal can pass over them.
+    for (const auto& death : simulation.DeathEffects()) {
+        if (!death.active) continue;
+        DrawSprite(
+            death.species == Species::Herbivore ? SpriteIndex::HerbivoreDead : SpriteIndex::CarnivoreDead,
+            static_cast<int>(death.position.x),
+            static_cast<int>(death.position.y));
+    }
+
     for (const auto& animal : simulation.Animals()) {
         if (!animal.active) continue;
 

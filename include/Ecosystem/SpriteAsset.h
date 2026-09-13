@@ -7,6 +7,8 @@ namespace ecosystem::graphics {
 enum class SpriteIndex : std::size_t {
     Grass = 0,
     Seed = 1,
+    HerbivoreDead = 2,
+    CarnivoreDead = 3,
 
     HerbivoreWalk1 = 4,
     HerbivoreWalk2 = 5,

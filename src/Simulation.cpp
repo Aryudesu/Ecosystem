@@ -311,6 +311,20 @@ int Simulation::FindNearestGrass(const Animal& from, float maxDistance) const {
 }
 
 bool Simulation::TrySpawnAnimal(Species species, const Vec2& position) {
+    const std::size_t speciesLimit = species == Species::Herbivore
+        ? SimulationConfig::MaxHerbivores
+        : SimulationConfig::MaxCarnivores;
+
+    std::size_t speciesCount = 0;
+    for (const auto& animal : animals_) {
+        if (animal.active && animal.species == species) {
+            ++speciesCount;
+        }
+    }
+    if (speciesCount >= speciesLimit) {
+        return false;
+    }
+
     for (auto& animal : animals_) {
         if (animal.active) continue;
 

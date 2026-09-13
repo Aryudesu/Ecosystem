@@ -77,14 +77,7 @@ struct SimulationConfig {
     static constexpr int InfoPanelWidth = 320;
     static constexpr int WindowWidth = Width + InfoPanelWidth;
     static constexpr int WindowHeight = Height;
-
-    // Keep independent species capacities so one species cannot consume every
-    // animal slot and prevent the other species from reproducing.
-    static constexpr std::size_t MaxHerbivores = 300;
-    static constexpr std::size_t MaxCarnivores = 100;
-    static constexpr std::size_t MaxAnimals = MaxHerbivores + MaxCarnivores;
-    static constexpr std::size_t MaxGrass = 300;
-    static constexpr std::size_t MaxDeathEffects = 300;
+    static constexpr std::size_t MaxObjects = 300;
 
     int initialCarnivores = 10;
     int initialHerbivores = 50;
@@ -151,9 +144,9 @@ struct SimulationStatistics {
 
 class Simulation {
 public:
-    using AnimalArray = std::array<Animal, SimulationConfig::MaxAnimals>;
-    using GrassArray = std::array<Grass, SimulationConfig::MaxGrass>;
-    using DeathEffectArray = std::array<DeathEffect, SimulationConfig::MaxDeathEffects>;
+    using AnimalArray = std::array<Animal, SimulationConfig::MaxObjects>;
+    using GrassArray = std::array<Grass, SimulationConfig::MaxObjects>;
+    using DeathEffectArray = std::array<DeathEffect, SimulationConfig::MaxObjects>;
 
     explicit Simulation(mygame::Random& random, SimulationConfig config = {});
 

@@ -39,6 +39,8 @@ void Simulation::Update() {
         if (!animals_[i].active) continue;
 
         auto& animal = animals_[i];
+        animal.moving = false;
+        animal.motion = AnimalMotion::Walk;
         animal.energy -= animal.species == Species::Herbivore
             ? config_.herbivoreEnergyCost
             : config_.carnivoreEnergyCost;
@@ -91,6 +93,7 @@ void Simulation::UpdateHerbivore(std::size_t index) {
     // The original HSP herbivores prioritize escaping nearby carnivores.
     const int predatorIndex = FindNearestAnimal(animal, Species::Carnivore, config_.senseRadius);
     if (predatorIndex >= 0) {
+        animal.motion = AnimalMotion::Run;
         MoveAway(animal, animals_[static_cast<std::size_t>(predatorIndex)].position, config_.herbivoreFleeSpeed);
         ClampToWorld(animal);
         return;
@@ -114,6 +117,7 @@ void Simulation::UpdateHerbivore(std::size_t index) {
                     animal.state = LifeState::Breeding;
                 }
             } else {
+                animal.motion = AnimalMotion::Run;
                 MoveToward(animal, food.position, config_.herbivoreFoodSpeed);
             }
         } else {
@@ -147,6 +151,7 @@ void Simulation::UpdateCarnivore(std::size_t index) {
                     animal.state = LifeState::Breeding;
                 }
             } else {
+                animal.motion = AnimalMotion::Run;
                 MoveToward(animal, prey.position, config_.carnivoreChaseSpeed);
             }
         } else {
@@ -167,6 +172,7 @@ void Simulation::Wander(Animal& animal, float speed) {
     const float deltaX = animal.wanderDirection.x * speed;
     const float deltaY = animal.wanderDirection.y * speed;
     UpdateFacing(animal, deltaX);
+    animal.moving = true;
     animal.position.x += deltaX;
     animal.position.y += deltaY;
 }
@@ -180,6 +186,7 @@ void Simulation::MoveToward(Animal& animal, const Vec2& target, float speed) {
     const float deltaX = dx / length * speed;
     const float deltaY = dy / length * speed;
     UpdateFacing(animal, deltaX);
+    animal.moving = true;
     animal.position.x += deltaX;
     animal.position.y += deltaY;
 }
@@ -193,6 +200,7 @@ void Simulation::MoveAway(Animal& animal, const Vec2& target, float speed) {
         const float deltaX = animal.wanderDirection.x * speed;
         const float deltaY = animal.wanderDirection.y * speed;
         UpdateFacing(animal, deltaX);
+        animal.moving = true;
         animal.position.x += deltaX;
         animal.position.y += deltaY;
         return;
@@ -201,6 +209,7 @@ void Simulation::MoveAway(Animal& animal, const Vec2& target, float speed) {
     const float deltaX = dx / length * speed;
     const float deltaY = dy / length * speed;
     UpdateFacing(animal, deltaX);
+    animal.moving = true;
     animal.position.x += deltaX;
     animal.position.y += deltaY;
 }
@@ -271,6 +280,8 @@ bool Simulation::TrySpawnAnimal(Species species, const Vec2& position) {
         animal.position = position;
         animal.wanderDirection = RandomDirection();
         animal.facingLeft = animal.wanderDirection.x < 0.0f;
+        animal.moving = false;
+        animal.motion = AnimalMotion::Walk;
         animal.energy = species == Species::Herbivore
             ? config_.herbivoreMaxEnergy
             : config_.carnivoreMaxEnergy;

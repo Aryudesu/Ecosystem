@@ -41,6 +41,7 @@ struct Animal {
     bool facingLeft = false;
     bool moving = false;
     AnimalMotion motion = AnimalMotion::Walk;
+    float animationDistance = 0.0f;
     float energy = 0.0f;
     int meals = 0;
     int breedTarget = 0;

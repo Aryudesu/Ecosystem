@@ -5,7 +5,26 @@
 
 #include <DxLib.h>
 
+#include <cstddef>
+
 namespace ecosystem::graphics {
+namespace {
+
+SpriteIndex AnimalSprite(const Animal& animal, bool secondFrame) {
+    if (animal.species == Species::Herbivore) {
+        if (animal.motion == AnimalMotion::Run) {
+            return secondFrame ? SpriteIndex::HerbivoreRun2 : SpriteIndex::HerbivoreRun1;
+        }
+        return secondFrame ? SpriteIndex::HerbivoreWalk2 : SpriteIndex::HerbivoreWalk1;
+    }
+
+    if (animal.motion == AnimalMotion::Run) {
+        return secondFrame ? SpriteIndex::CarnivoreRun2 : SpriteIndex::CarnivoreRun1;
+    }
+    return secondFrame ? SpriteIndex::CarnivoreWalk2 : SpriteIndex::CarnivoreWalk1;
+}
+
+} // namespace
 
 void DrawSimulation(const Simulation& simulation) {
     if (!IsSpriteReady()) {
@@ -24,16 +43,18 @@ void DrawSimulation(const Simulation& simulation) {
             static_cast<int>(grass.position.y));
     }
 
-    for (const auto& animal : simulation.Animals()) {
+    const auto& animals = simulation.Animals();
+    for (std::size_t i = 0; i < animals.size(); ++i) {
+        const auto& animal = animals[i];
         if (!animal.active) continue;
 
         const int x = static_cast<int>(animal.position.x);
         const int y = static_cast<int>(animal.position.y);
-        const auto sprite = animal.species == Species::Herbivore
-            ? SpriteIndex::Herbivore
-            : SpriteIndex::Carnivore;
+        const unsigned long long framePeriod = animal.motion == AnimalMotion::Run ? 4ULL : 10ULL;
+        const unsigned long long animationClock = simulation.Frame() + static_cast<unsigned long long>(i * 3);
+        const bool secondFrame = animal.moving && ((animationClock / framePeriod) % 2ULL != 0ULL);
 
-        DrawSprite(sprite, x, y, animal.facingLeft);
+        DrawSprite(AnimalSprite(animal, secondFrame), x, y, animal.facingLeft);
 
         if (animal.state == LifeState::Hungry) {
             DrawCircle(x, y, 13, hungryColor, FALSE, 1);

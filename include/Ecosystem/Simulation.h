@@ -22,12 +22,18 @@ enum class Species {
     Carnivore,
 };
 
+enum class GrassState {
+    Mature,
+    Seed,
+};
+
 struct Animal {
     bool active = false;
     Species species = Species::Herbivore;
     LifeState state = LifeState::Inactive;
     Vec2 position{};
     Vec2 wanderDirection{1.0f, 0.0f};
+    bool facingLeft = false;
     float energy = 0.0f;
     int meals = 0;
     int breedTarget = 0;
@@ -35,7 +41,10 @@ struct Animal {
 
 struct Grass {
     bool active = false;
+    GrassState state = GrassState::Mature;
     Vec2 position{};
+    int growthFrames = 0;
+    int growthTarget = 0;
 };
 
 struct SimulationConfig {
@@ -66,6 +75,8 @@ struct SimulationConfig {
     float carnivoreFoodEnergy = 72.0f;
 
     int grassFromDeath = 5;
+    int grassSeedGrowMinFrames = 100;
+    int grassSeedGrowMaxFrames = 199;
     int grassRegrowFrames = 24;
 };
 
@@ -95,16 +106,18 @@ private:
     void UpdateHerbivore(std::size_t index);
     void UpdateCarnivore(std::size_t index);
     void UpdateState(Animal& animal);
+    void UpdateGrass();
     void Wander(Animal& animal, float speed);
     void MoveToward(Animal& animal, const Vec2& target, float speed);
     void MoveAway(Animal& animal, const Vec2& target, float speed);
     void ClampToWorld(Animal& animal);
+    void UpdateFacing(Animal& animal, float deltaX);
 
     int FindNearestAnimal(const Animal& from, Species species, float maxDistance, bool breedingPartner = false) const;
     int FindNearestGrass(const Animal& from, float maxDistance) const;
 
     bool TrySpawnAnimal(Species species, const Vec2& position);
-    bool TrySpawnGrass(const Vec2& position);
+    bool TrySpawnGrass(const Vec2& position, GrassState state = GrassState::Mature, int growthTarget = 0);
     void SpawnGrassAround(const Vec2& position, int count);
     void KillAnimal(Animal& animal);
     void TryBreed(std::size_t index);

@@ -82,6 +82,7 @@ struct SimulationConfig {
     float herbivoreFoodEnergy = 42.0f;
     float carnivoreFoodEnergy = 72.0f;
 
+    // Litter size per successful breeding event.
     int herbivoreOffspringMin = 1;
     int herbivoreOffspringMax = 2;
     int carnivoreOffspringMin = 1;

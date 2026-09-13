@@ -91,7 +91,11 @@ struct SimulationConfig {
     int initialGrass = 100;
 
     float senseRadius = 64.0f;
-    float carnivorePreySenseRadius = 160.0f;
+    float carnivorePreySenseRadius = 64.0f;
+    float carnivoreDesperatePreySenseRadius = 128.0f;
+    float carnivoreCriticalPreySenseRadius = 160.0f;
+    float carnivoreDesperateEnergy = 30.0f;
+    float carnivoreCriticalEnergy = 15.0f;
     float herbivoreBreedSenseRadius = 64.0f;
     float carnivoreBreedSenseRadius = 800.0f;
     float interactionRadius = 16.0f;

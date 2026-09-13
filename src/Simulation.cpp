@@ -19,6 +19,7 @@ Simulation::Simulation(mygame::Random& random, SimulationConfig config)
 void Simulation::Reset() {
     animals_.fill({});
     grass_.fill({});
+    deathEffects_.fill({});
     frame_ = 0;
 
     for (int i = 0; i < config_.initialHerbivores; ++i) {
@@ -65,6 +66,17 @@ void Simulation::Update() {
 
     UpdateGrass();
     TryRegrowGrass();
+}
+
+void Simulation::UpdateVisualEffects() {
+    for (auto& death : deathEffects_) {
+        if (!death.active) continue;
+
+        --death.remainingFrames;
+        if (death.remainingFrames <= 0) {
+            death = {};
+        }
+    }
 }
 
 void Simulation::UpdateState(Animal& animal) {
@@ -316,7 +328,7 @@ bool Simulation::TrySpawnAnimal(Species species, const Vec2& position) {
             : config_.carnivoreMaxEnergy;
         animal.breedTarget = species == Species::Herbivore
             ? random_.Int(2, 4)
-            : random_.Int(6, 9);
+            : random_.Int(5, 7);
         animal.age = 0;
         animal.ageFrames = 0;
 
@@ -361,9 +373,38 @@ void Simulation::SpawnGrassAround(const Vec2& position, int count) {
     }
 }
 
+void Simulation::SpawnDeathEffect(Species species, const Vec2& position) {
+    if (config_.deathDisplayFrames <= 0) return;
+
+    DeathEffect* slot = nullptr;
+    for (auto& death : deathEffects_) {
+        if (!death.active) {
+            slot = &death;
+            break;
+        }
+    }
+
+    if (slot == nullptr) {
+        slot = &*std::min_element(
+            deathEffects_.begin(),
+            deathEffects_.end(),
+            [](const DeathEffect& lhs, const DeathEffect& rhs) {
+                return lhs.remainingFrames < rhs.remainingFrames;
+            });
+    }
+
+    slot->active = true;
+    slot->species = species;
+    slot->position = position;
+    slot->remainingFrames = config_.deathDisplayFrames;
+}
+
 void Simulation::KillAnimal(Animal& animal) {
     if (!animal.active) return;
+
+    const Species species = animal.species;
     const Vec2 deathPosition = animal.position;
+    SpawnDeathEffect(species, deathPosition);
     animal = {};
     SpawnGrassAround(deathPosition, config_.grassFromDeath);
 }
@@ -411,7 +452,7 @@ void Simulation::TryBreed(std::size_t index) {
         animal.meals = 0;
         animal.breedTarget = animal.species == Species::Herbivore
             ? random_.Int(2, 4)
-            : random_.Int(6, 9);
+            : random_.Int(5, 7);
         animal.state = LifeState::Normal;
     }
 }
@@ -458,6 +499,7 @@ void Simulation::Draw() const {
     const unsigned int seedColor = GetColor(155, 105, 55);
     const unsigned int herbivoreColor = GetColor(60, 125, 235);
     const unsigned int carnivoreColor = GetColor(220, 70, 70);
+    const unsigned int deathColor = GetColor(125, 125, 125);
     const unsigned int hungryColor = GetColor(255, 175, 45);
     const unsigned int breedingColor = GetColor(220, 90, 220);
 
@@ -470,6 +512,14 @@ void Simulation::Draw() const {
             seed ? 2 : 3,
             seed ? seedColor : grassColor,
             TRUE);
+    }
+
+    for (const auto& death : deathEffects_) {
+        if (!death.active) continue;
+        const int x = static_cast<int>(death.position.x);
+        const int y = static_cast<int>(death.position.y);
+        const int halfWidth = death.species == Species::Herbivore ? 7 : 9;
+        DrawBox(x - halfWidth, y - 3, x + halfWidth, y + 3, deathColor, TRUE);
     }
 
     for (const auto& animal : animals_) {

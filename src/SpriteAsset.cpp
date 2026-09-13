@@ -13,7 +13,7 @@ namespace {
 
 constexpr int SpriteSheetId = 100;
 constexpr int CellSize = 24;
-constexpr int Columns = 3;
+constexpr int Columns = 4;
 constexpr int Rows = 1;
 constexpr int SheetWidth = CellSize * Columns;
 constexpr int SheetHeight = CellSize * Rows;
@@ -102,6 +102,33 @@ constexpr Pattern CarnivorePattern = {
     "........................",
 };
 
+constexpr Pattern SeedPattern = {
+    "........................",
+    "........................",
+    "........................",
+    "........................",
+    "........................",
+    "........................",
+    "........................",
+    "............g...........",
+    "...........gg...........",
+    "..........gg............",
+    "...........g............",
+    "...........SS...........",
+    "..........SSSS..........",
+    ".........SSSSSS.........",
+    ".........SSSSSS.........",
+    ".........sSSSSs.........",
+    "..........ssss..........",
+    "...........ss...........",
+    "........................",
+    "........................",
+    "........................",
+    "........................",
+    "........................",
+    "........................",
+};
+
 struct Rgb {
     std::uint8_t r;
     std::uint8_t g;
@@ -122,6 +149,8 @@ constexpr Rgb ColorFor(char pixel) {
     case 'r': return {125, 45, 35};
     case 'R': return {200, 75, 55};
     case 'o': return {235, 130, 70};
+    case 's': return {120, 72, 38};
+    case 'S': return {190, 128, 68};
     default:  return {255, 0, 255};
     }
 }
@@ -146,7 +175,8 @@ Rgb SheetPixel(int x, int y) {
     switch (cell) {
     case 0: pattern = &GrassPattern; break;
     case 1: pattern = &HerbivorePattern; break;
-    default: pattern = &CarnivorePattern; break;
+    case 2: pattern = &CarnivorePattern; break;
+    default: pattern = &SeedPattern; break;
     }
 
     return ColorFor((*pattern)[static_cast<std::size_t>(y)][static_cast<std::size_t>(localX)]);
@@ -214,14 +244,27 @@ void ShutdownSprites() {
     ready = false;
 }
 
-bool DrawSprite(SpriteIndex sprite, int centerX, int centerY) {
+bool DrawSprite(SpriteIndex sprite, int centerX, int centerY, bool flipHorizontal) {
     if (!ready) return false;
-    return mygame::ImageManager::GetInstance().Draw(
-        SpriteSheetId,
+
+    auto& images = mygame::ImageManager::GetInstance();
+    const std::size_t index = static_cast<std::size_t>(sprite);
+    if (!flipHorizontal) {
+        return images.Draw(
+            SpriteSheetId,
+            centerX - CellSize / 2,
+            centerY - CellSize / 2,
+            true,
+            index);
+    }
+
+    const int handle = images.Handle(SpriteSheetId, index);
+    if (handle == -1) return false;
+    return DrawTurnGraph(
         centerX - CellSize / 2,
         centerY - CellSize / 2,
-        true,
-        static_cast<std::size_t>(sprite));
+        handle,
+        TRUE) == 0;
 }
 
 bool IsSpriteReady() {

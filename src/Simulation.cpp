@@ -56,6 +56,7 @@ void Simulation::Update() {
         }
     }
 
+    UpdateGrass();
     TryRegrowGrass();
 }
 
@@ -69,6 +70,19 @@ void Simulation::UpdateState(Animal& animal) {
     animal.state = animal.energy <= hungryEnergy
         ? LifeState::Hungry
         : LifeState::Normal;
+}
+
+void Simulation::UpdateGrass() {
+    for (auto& grass : grass_) {
+        if (!grass.active || grass.state != GrassState::Seed) continue;
+
+        ++grass.growthFrames;
+        if (grass.growthFrames >= grass.growthTarget) {
+            grass.state = GrassState::Mature;
+            grass.growthFrames = 0;
+            grass.growthTarget = 0;
+        }
+    }
 }
 
 void Simulation::UpdateHerbivore(std::size_t index) {
@@ -93,7 +107,7 @@ void Simulation::UpdateHerbivore(std::size_t index) {
         if (grassIndex >= 0) {
             auto& food = grass_[static_cast<std::size_t>(grassIndex)];
             if (DistanceSquared(animal.position, food.position) <= config_.interactionRadius * config_.interactionRadius) {
-                food.active = false;
+                food = {};
                 animal.energy = std::min(config_.herbivoreMaxEnergy, animal.energy + config_.herbivoreFoodEnergy);
                 ++animal.meals;
                 if (animal.meals >= animal.breedTarget) {
@@ -149,8 +163,12 @@ void Simulation::Wander(Animal& animal, float speed) {
     if (random_.Chance(0.025)) {
         animal.wanderDirection = RandomDirection();
     }
-    animal.position.x += animal.wanderDirection.x * speed;
-    animal.position.y += animal.wanderDirection.y * speed;
+
+    const float deltaX = animal.wanderDirection.x * speed;
+    const float deltaY = animal.wanderDirection.y * speed;
+    UpdateFacing(animal, deltaX);
+    animal.position.x += deltaX;
+    animal.position.y += deltaY;
 }
 
 void Simulation::MoveToward(Animal& animal, const Vec2& target, float speed) {
@@ -159,8 +177,11 @@ void Simulation::MoveToward(Animal& animal, const Vec2& target, float speed) {
     const float length = std::sqrt(dx * dx + dy * dy);
     if (length <= 0.0001f) return;
 
-    animal.position.x += dx / length * speed;
-    animal.position.y += dy / length * speed;
+    const float deltaX = dx / length * speed;
+    const float deltaY = dy / length * speed;
+    UpdateFacing(animal, deltaX);
+    animal.position.x += deltaX;
+    animal.position.y += deltaY;
 }
 
 void Simulation::MoveAway(Animal& animal, const Vec2& target, float speed) {
@@ -169,13 +190,19 @@ void Simulation::MoveAway(Animal& animal, const Vec2& target, float speed) {
     const float length = std::sqrt(dx * dx + dy * dy);
     if (length <= 0.0001f) {
         animal.wanderDirection = RandomDirection();
-        animal.position.x += animal.wanderDirection.x * speed;
-        animal.position.y += animal.wanderDirection.y * speed;
+        const float deltaX = animal.wanderDirection.x * speed;
+        const float deltaY = animal.wanderDirection.y * speed;
+        UpdateFacing(animal, deltaX);
+        animal.position.x += deltaX;
+        animal.position.y += deltaY;
         return;
     }
 
-    animal.position.x += dx / length * speed;
-    animal.position.y += dy / length * speed;
+    const float deltaX = dx / length * speed;
+    const float deltaY = dy / length * speed;
+    UpdateFacing(animal, deltaX);
+    animal.position.x += deltaX;
+    animal.position.y += deltaY;
 }
 
 void Simulation::ClampToWorld(Animal& animal) {
@@ -186,6 +213,15 @@ void Simulation::ClampToWorld(Animal& animal) {
 
     if (animal.position.x != oldX || animal.position.y != oldY) {
         animal.wanderDirection = RandomDirection();
+    }
+}
+
+void Simulation::UpdateFacing(Animal& animal, float deltaX) {
+    constexpr float Epsilon = 0.0001f;
+    if (deltaX < -Epsilon) {
+        animal.facingLeft = true;
+    } else if (deltaX > Epsilon) {
+        animal.facingLeft = false;
     }
 }
 
@@ -214,7 +250,7 @@ int Simulation::FindNearestGrass(const Animal& from, float maxDistance) const {
     int bestIndex = -1;
 
     for (std::size_t i = 0; i < grass_.size(); ++i) {
-        if (!grass_[i].active) continue;
+        if (!grass_[i].active || grass_[i].state != GrassState::Mature) continue;
         const float distance = DistanceSquared(from.position, grass_[i].position);
         if (distance <= bestDistance) {
             bestDistance = distance;
@@ -234,6 +270,7 @@ bool Simulation::TrySpawnAnimal(Species species, const Vec2& position) {
         animal.state = LifeState::Normal;
         animal.position = position;
         animal.wanderDirection = RandomDirection();
+        animal.facingLeft = animal.wanderDirection.x < 0.0f;
         animal.energy = species == Species::Herbivore
             ? config_.herbivoreMaxEnergy
             : config_.carnivoreMaxEnergy;
@@ -245,24 +282,30 @@ bool Simulation::TrySpawnAnimal(Species species, const Vec2& position) {
     return false;
 }
 
-bool Simulation::TrySpawnGrass(const Vec2& position) {
+bool Simulation::TrySpawnGrass(const Vec2& position, GrassState state, int growthTarget) {
     for (auto& grass : grass_) {
         if (grass.active) continue;
+        grass = {};
         grass.active = true;
+        grass.state = state;
         grass.position.x = std::clamp(position.x, 0.0f, static_cast<float>(SimulationConfig::Width - 1));
         grass.position.y = std::clamp(position.y, 0.0f, static_cast<float>(SimulationConfig::Height - 1));
+        grass.growthTarget = state == GrassState::Seed ? std::max(1, growthTarget) : 0;
         return true;
     }
     return false;
 }
 
 void Simulation::SpawnGrassAround(const Vec2& position, int count) {
+    const int minGrow = std::min(config_.grassSeedGrowMinFrames, config_.grassSeedGrowMaxFrames);
+    const int maxGrow = std::max(config_.grassSeedGrowMinFrames, config_.grassSeedGrowMaxFrames);
+
     for (int i = 0; i < count; ++i) {
         Vec2 p{
             position.x + static_cast<float>(random_.Int(-24, 24)),
             position.y + static_cast<float>(random_.Int(-24, 24)),
         };
-        if (!TrySpawnGrass(p)) return;
+        if (!TrySpawnGrass(p, GrassState::Seed, random_.Int(minGrow, maxGrow))) return;
     }
 }
 
@@ -344,6 +387,7 @@ Population Simulation::GetPopulation() const {
 
 void Simulation::Draw() const {
     const unsigned int grassColor = GetColor(70, 185, 70);
+    const unsigned int seedColor = GetColor(155, 105, 55);
     const unsigned int herbivoreColor = GetColor(60, 125, 235);
     const unsigned int carnivoreColor = GetColor(220, 70, 70);
     const unsigned int hungryColor = GetColor(255, 175, 45);
@@ -351,7 +395,13 @@ void Simulation::Draw() const {
 
     for (const auto& grass : grass_) {
         if (!grass.active) continue;
-        DrawCircle(static_cast<int>(grass.position.x), static_cast<int>(grass.position.y), 3, grassColor, TRUE);
+        const bool seed = grass.state == GrassState::Seed;
+        DrawCircle(
+            static_cast<int>(grass.position.x),
+            static_cast<int>(grass.position.y),
+            seed ? 2 : 3,
+            seed ? seedColor : grassColor,
+            TRUE);
     }
 
     for (const auto& animal : animals_) {

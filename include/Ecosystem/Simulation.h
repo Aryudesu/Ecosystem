@@ -32,6 +32,12 @@ enum class AnimalMotion {
     Run,
 };
 
+enum class DeathCause {
+    OldAge,
+    Starvation,
+    Predation,
+};
+
 struct Animal {
     bool active = false;
     Species species = Species::Herbivore;
@@ -103,8 +109,8 @@ struct SimulationConfig {
     int framesPerAge = 600;
     int herbivoreLifespanMin = 8;
     int herbivoreLifespanMax = 12;
-    int carnivoreLifespanMin = 8;
-    int carnivoreLifespanMax = 12;
+    int carnivoreLifespanMin = 12;
+    int carnivoreLifespanMax = 16;
 
     // Death effects are counted in rendered frames, not simulation steps.
     int deathDisplayFrames = 30;
@@ -121,6 +127,18 @@ struct Population {
     int grass = 0;
 };
 
+struct SpeciesStatistics {
+    unsigned long long births = 0;
+    unsigned long long oldAgeDeaths = 0;
+    unsigned long long starvationDeaths = 0;
+    unsigned long long predationDeaths = 0;
+};
+
+struct SimulationStatistics {
+    SpeciesStatistics herbivore{};
+    SpeciesStatistics carnivore{};
+};
+
 class Simulation {
 public:
     using AnimalArray = std::array<Animal, SimulationConfig::MaxObjects>;
@@ -135,6 +153,7 @@ public:
     void Draw() const;
 
     [[nodiscard]] Population GetPopulation() const;
+    [[nodiscard]] const SimulationStatistics& GetStatistics() const { return statistics_; }
     [[nodiscard]] unsigned long long Frame() const { return frame_; }
     [[nodiscard]] float SenseRadius() const { return config_.senseRadius; }
     [[nodiscard]] const AnimalArray& Animals() const { return animals_; }
@@ -160,7 +179,7 @@ private:
     bool TrySpawnGrass(const Vec2& position, GrassState state = GrassState::Mature, int growthTarget = 0);
     void SpawnGrassAround(const Vec2& position, int count);
     void SpawnDeathEffect(Species species, const Vec2& position);
-    void KillAnimal(Animal& animal);
+    void KillAnimal(Animal& animal, DeathCause cause);
     void TryBreed(std::size_t index);
     void TryRegrowGrass();
 
@@ -173,6 +192,7 @@ private:
     AnimalArray animals_{};
     GrassArray grass_{};
     DeathEffectArray deathEffects_{};
+    SimulationStatistics statistics_{};
     unsigned long long frame_ = 0;
 };
 

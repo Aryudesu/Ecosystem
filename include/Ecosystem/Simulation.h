@@ -99,6 +99,7 @@ public:
 
     [[nodiscard]] Population GetPopulation() const;
     [[nodiscard]] unsigned long long Frame() const { return frame_; }
+    [[nodiscard]] float SenseRadius() const { return config_.senseRadius; }
     [[nodiscard]] const AnimalArray& Animals() const { return animals_; }
     [[nodiscard]] const GrassArray& GrassItems() const { return grass_; }
 

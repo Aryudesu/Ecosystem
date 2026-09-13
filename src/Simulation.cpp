@@ -349,12 +349,28 @@ void Simulation::TryBreed(std::size_t index) {
         return;
     }
 
-    Vec2 childPosition{
+    const Vec2 childPosition{
         (animal.position.x + partner.position.x) * 0.5f,
         (animal.position.y + partner.position.y) * 0.5f,
     };
 
-    if (TrySpawnAnimal(animal.species, childPosition)) {
+    const int configuredMin = animal.species == Species::Herbivore
+        ? config_.herbivoreOffspringMin
+        : config_.carnivoreOffspringMin;
+    const int configuredMax = animal.species == Species::Herbivore
+        ? config_.herbivoreOffspringMax
+        : config_.carnivoreOffspringMax;
+    const int minOffspring = std::max(0, std::min(configuredMin, configuredMax));
+    const int maxOffspring = std::max(minOffspring, std::max(configuredMin, configuredMax));
+    const int offspringTarget = random_.Int(minOffspring, maxOffspring);
+
+    int spawnedOffspring = 0;
+    for (int i = 0; i < offspringTarget; ++i) {
+        if (!TrySpawnAnimal(animal.species, childPosition)) break;
+        ++spawnedOffspring;
+    }
+
+    if (spawnedOffspring > 0) {
         animal.meals = 0;
         animal.breedTarget = animal.species == Species::Herbivore
             ? random_.Int(2, 4)

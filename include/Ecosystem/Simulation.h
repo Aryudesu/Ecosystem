@@ -93,7 +93,7 @@ struct SimulationConfig {
     float carnivoreMaxEnergy = 130.0f;
     float herbivoreHungryEnergy = 45.0f;
     float carnivoreHungryEnergy = 60.0f;
-    float herbivoreEnergyCost = 0.025f;
+    float herbivoreEnergyCost = 0.10f;
     float carnivoreEnergyCost = 0.20f;
     float herbivoreFoodEnergy = 42.0f;
     float carnivoreFoodEnergy = 72.0f;

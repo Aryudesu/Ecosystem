@@ -25,7 +25,9 @@ SpriteIndex AnimalSprite(const Animal& animal, bool secondFrame) {
 bool IsSecondAnimationFrame(const Animal& animal) {
     if (!animal.moving) return false;
 
-    const float stride = animal.motion == AnimalMotion::Run ? 4.0f : 6.0f;
+    // Toggle by travelled distance rather than simulation frame so the animation
+    // remains readable even when steps-per-frame is increased.
+    const float stride = animal.motion == AnimalMotion::Run ? 8.0f : 4.0f;
     return static_cast<int>(animal.animationDistance / stride) % 2 != 0;
 }
 

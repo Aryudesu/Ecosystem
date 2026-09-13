@@ -246,85 +246,102 @@ void Simulation::MoveToward(Animal& animal, const Vec2& target, float speed) {
 }
 
 void Simulation::MoveAway(Animal& animal, const Vec2& target, float speed) {
-    const float dx = animal.position.x - target.x;
-    const float dy = animal.position.y - target.y;
-    const float length = std::sqrt(dx * dx + dy * dy);
-    if (length <= 0.0001f) {
-        animal.wanderDirection = RandomDirection();
-        const float deltaX = animal.wanderDirection.x * speed;
-        const float deltaY = animal.wanderDirection.y * speed;
-        UpdateFacing(animal, deltaX);
-        animal.moving = true;
-        animal.animationDistance += std::abs(speed);
-        animal.position.x += deltaX;
-        animal.position.y += deltaY;
-        return;
-    }
-
-    float deltaX = dx / length * speed;
-    float deltaY = dy / length * speed;
+    constexpr int EscapeDirectionCount = 16;
+    constexpr float ScoreEpsilon = 0.0001f;
 
     const float maxX = static_cast<float>(SimulationConfig::Width - 1);
     const float maxY = static_cast<float>(SimulationConfig::Height - 1);
-    const float nextX = animal.position.x + deltaX;
-    const float nextY = animal.position.y + deltaY;
-    const bool directMoveInside =
-        nextX >= 0.0f && nextX <= maxX &&
-        nextY >= 0.0f && nextY <= maxY;
 
-    // If the straight escape direction points outside the world, do not keep
-    // pushing against the boundary. Slide along a legal axis instead and pick
-    // the step that leaves the animal farthest from the predator.
-    if (!directMoveInside) {
-        const Vec2 candidates[] = {
-            { speed, 0.0f },
-            { -speed, 0.0f },
-            { 0.0f, speed },
-            { 0.0f, -speed },
-        };
-
-        bool foundCandidate = false;
-        float bestDistance = -1.0f;
-        float bestDeltaX = 0.0f;
-        float bestDeltaY = 0.0f;
-
-        for (const auto& candidate : candidates) {
-            const float candidateX = animal.position.x + candidate.x;
-            const float candidateY = animal.position.y + candidate.y;
-            if (candidateX < 0.0f || candidateX > maxX ||
-                candidateY < 0.0f || candidateY > maxY) {
-                continue;
-            }
-
-            const Vec2 candidatePosition{ candidateX, candidateY };
-            const float distance = DistanceSquared(candidatePosition, target);
-            if (!foundCandidate || distance > bestDistance) {
-                foundCandidate = true;
-                bestDistance = distance;
-                bestDeltaX = candidate.x;
-                bestDeltaY = candidate.y;
-            }
-        }
-
-        if (foundCandidate) {
-            deltaX = bestDeltaX;
-            deltaY = bestDeltaY;
-        } else {
-            // Extremely small worlds or unusually large speeds may leave no
-            // full-speed candidate. Fall back to the largest legal partial step.
-            const float clampedX = std::clamp(nextX, 0.0f, maxX);
-            const float clampedY = std::clamp(nextY, 0.0f, maxY);
-            deltaX = clampedX - animal.position.x;
-            deltaY = clampedY - animal.position.y;
+    bool hasPredator = false;
+    for (const auto& candidate : animals_) {
+        if (candidate.active && candidate.species == Species::Carnivore) {
+            hasPredator = true;
+            break;
         }
     }
 
-    UpdateFacing(animal, deltaX);
-    const float movedDistance = std::sqrt(deltaX * deltaX + deltaY * deltaY);
-    animal.moving = movedDistance > 0.0001f;
+    // This should not normally happen because UpdateHerbivore calls this only
+    // after detecting a carnivore, but keep the old single-target escape as a
+    // safe fallback.
+    if (!hasPredator) {
+        const float dx = animal.position.x - target.x;
+        const float dy = animal.position.y - target.y;
+        const float length = std::sqrt(dx * dx + dy * dy);
+        if (length <= 0.0001f) return;
+
+        const float nextX = std::clamp(animal.position.x + dx / length * speed, 0.0f, maxX);
+        const float nextY = std::clamp(animal.position.y + dy / length * speed, 0.0f, maxY);
+        const float deltaX = nextX - animal.position.x;
+        const float deltaY = nextY - animal.position.y;
+        UpdateFacing(animal, deltaX);
+        const float movedDistance = std::sqrt(deltaX * deltaX + deltaY * deltaY);
+        animal.moving = movedDistance > ScoreEpsilon;
+        animal.animationDistance += movedDistance;
+        animal.position.x = nextX;
+        animal.position.y = nextY;
+        return;
+    }
+
+    bool foundCandidate = false;
+    float bestNearestPredatorDistance = -1.0f;
+    float bestTotalPredatorDistance = -1.0f;
+    float bestDeltaX = 0.0f;
+    float bestDeltaY = 0.0f;
+
+    // Evaluate several legal escape directions. The primary score maximizes
+    // the distance to the nearest carnivore, so fleeing from one predator does
+    // not send the herbivore directly toward another one. Total distance is a
+    // tie-breaker for symmetric situations.
+    for (int directionIndex = 0; directionIndex < EscapeDirectionCount; ++directionIndex) {
+        const float angle = 2.0f * Pi * static_cast<float>(directionIndex)
+            / static_cast<float>(EscapeDirectionCount);
+        const float deltaX = std::cos(angle) * speed;
+        const float deltaY = std::sin(angle) * speed;
+        const float candidateX = animal.position.x + deltaX;
+        const float candidateY = animal.position.y + deltaY;
+
+        if (candidateX < 0.0f || candidateX > maxX ||
+            candidateY < 0.0f || candidateY > maxY) {
+            continue;
+        }
+
+        const Vec2 candidatePosition{ candidateX, candidateY };
+        float nearestPredatorDistance = std::numeric_limits<float>::max();
+        float totalPredatorDistance = 0.0f;
+
+        for (const auto& predator : animals_) {
+            if (!predator.active || predator.species != Species::Carnivore) continue;
+
+            const float distance = DistanceSquared(candidatePosition, predator.position);
+            nearestPredatorDistance = std::min(nearestPredatorDistance, distance);
+            totalPredatorDistance += distance;
+        }
+
+        const bool betterNearest =
+            nearestPredatorDistance > bestNearestPredatorDistance + ScoreEpsilon;
+        const bool sameNearest =
+            std::abs(nearestPredatorDistance - bestNearestPredatorDistance) <= ScoreEpsilon;
+        const bool betterTotal = totalPredatorDistance > bestTotalPredatorDistance;
+
+        if (!foundCandidate || betterNearest || (sameNearest && betterTotal)) {
+            foundCandidate = true;
+            bestNearestPredatorDistance = nearestPredatorDistance;
+            bestTotalPredatorDistance = totalPredatorDistance;
+            bestDeltaX = deltaX;
+            bestDeltaY = deltaY;
+        }
+    }
+
+    if (!foundCandidate) {
+        return;
+    }
+
+    UpdateFacing(animal, bestDeltaX);
+    const float movedDistance = std::sqrt(bestDeltaX * bestDeltaX + bestDeltaY * bestDeltaY);
+    animal.moving = movedDistance > ScoreEpsilon;
     animal.animationDistance += movedDistance;
-    animal.position.x += deltaX;
-    animal.position.y += deltaY;
+    animal.position.x += bestDeltaX;
+    animal.position.y += bestDeltaY;
 }
 
 void Simulation::ClampToWorld(Animal& animal) {

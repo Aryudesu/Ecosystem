@@ -90,7 +90,6 @@ void Simulation::UpdateGrass() {
 void Simulation::UpdateHerbivore(std::size_t index) {
     auto& animal = animals_[index];
 
-    // The original HSP herbivores prioritize escaping nearby carnivores.
     const int predatorIndex = FindNearestAnimal(animal, Species::Carnivore, config_.senseRadius);
     if (predatorIndex >= 0) {
         animal.motion = AnimalMotion::Run;
@@ -173,6 +172,7 @@ void Simulation::Wander(Animal& animal, float speed) {
     const float deltaY = animal.wanderDirection.y * speed;
     UpdateFacing(animal, deltaX);
     animal.moving = true;
+    animal.animationDistance += std::abs(speed);
     animal.position.x += deltaX;
     animal.position.y += deltaY;
 }
@@ -187,6 +187,7 @@ void Simulation::MoveToward(Animal& animal, const Vec2& target, float speed) {
     const float deltaY = dy / length * speed;
     UpdateFacing(animal, deltaX);
     animal.moving = true;
+    animal.animationDistance += std::abs(speed);
     animal.position.x += deltaX;
     animal.position.y += deltaY;
 }
@@ -201,6 +202,7 @@ void Simulation::MoveAway(Animal& animal, const Vec2& target, float speed) {
         const float deltaY = animal.wanderDirection.y * speed;
         UpdateFacing(animal, deltaX);
         animal.moving = true;
+        animal.animationDistance += std::abs(speed);
         animal.position.x += deltaX;
         animal.position.y += deltaY;
         return;
@@ -210,6 +212,7 @@ void Simulation::MoveAway(Animal& animal, const Vec2& target, float speed) {
     const float deltaY = dy / length * speed;
     UpdateFacing(animal, deltaX);
     animal.moving = true;
+    animal.animationDistance += std::abs(speed);
     animal.position.x += deltaX;
     animal.position.y += deltaY;
 }
@@ -282,6 +285,7 @@ bool Simulation::TrySpawnAnimal(Species species, const Vec2& position) {
         animal.facingLeft = animal.wanderDirection.x < 0.0f;
         animal.moving = false;
         animal.motion = AnimalMotion::Walk;
+        animal.animationDistance = 0.0f;
         animal.energy = species == Species::Herbivore
             ? config_.herbivoreMaxEnergy
             : config_.carnivoreMaxEnergy;

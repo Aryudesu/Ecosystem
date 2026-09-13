@@ -60,14 +60,18 @@
   - 初期値は30描画フレーム
   - シミュレーション速度をx16にしても表示時間が極端に短くならないよう、simulation stepではなく描画フレームで管理
   - Pause中は死亡表示も停止する
-- 右側の情報表示パネルに現在値・統計・操作説明を表示する
+- 右側の情報表示パネルに現在値・統計・個体数推移・操作説明を表示する
   - 現在の Carnivore / Herbivore / Grass 数
   - Frame / Speed / RUNNING・PAUSED 状態
   - 出生数
   - Old Age / Starvation / Predation の死亡原因別統計
-  - 将来の個体数推移グラフ用スペース
+  - Population Graph
+    - 100 simulation stepごとに Carnivore / Herbivore / Grass の個体数を記録
+    - 最大280サンプルを保持し、古いデータから順にスクロール
+    - Carnivore は赤、Herbivore は青、Grass は緑の折れ線で表示
+    - 縦軸は0〜300で固定し、3系列を同じスケールで比較
   - 操作説明
-  - `R` でResetすると統計も0に戻る
+  - `R` でResetすると統計とPopulation Graphの履歴もリセット
 
 旧ソースから数値を確定できなかったエネルギー量・消費量・通常移動速度・草の自然再生間隔などは `SimulationConfig` にまとめ、あとから容易に調整できるようにしています。草食・肉食の1回あたりの出産数、種別ごとの繁殖相手探索範囲、`framesPerAge`、種別ごとの寿命範囲、死亡表示時間も `SimulationConfig` で調整できます。
 

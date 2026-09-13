@@ -82,6 +82,12 @@ struct SimulationConfig {
     float herbivoreFoodEnergy = 42.0f;
     float carnivoreFoodEnergy = 72.0f;
 
+    // Litter size per successful breeding event.
+    int herbivoreOffspringMin = 1;
+    int herbivoreOffspringMax = 2;
+    int carnivoreOffspringMin = 1;
+    int carnivoreOffspringMax = 1;
+
     int grassFromDeath = 5;
     int grassSeedGrowMinFrames = 100;
     int grassSeedGrowMaxFrames = 199;

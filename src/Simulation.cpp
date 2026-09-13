@@ -41,6 +41,11 @@ void Simulation::Update() {
         auto& animal = animals_[i];
         animal.moving = false;
         animal.motion = AnimalMotion::Walk;
+
+        if (AdvanceAge(animal)) {
+            continue;
+        }
+
         animal.energy -= animal.species == Species::Herbivore
             ? config_.herbivoreEnergyCost
             : config_.carnivoreEnergyCost;
@@ -72,6 +77,26 @@ void Simulation::UpdateState(Animal& animal) {
     animal.state = animal.energy <= hungryEnergy
         ? LifeState::Hungry
         : LifeState::Normal;
+}
+
+bool Simulation::AdvanceAge(Animal& animal) {
+    if (!animal.active || config_.framesPerAge <= 0 || animal.lifespan <= 0) {
+        return false;
+    }
+
+    ++animal.ageFrames;
+    if (animal.ageFrames < config_.framesPerAge) {
+        return false;
+    }
+
+    animal.ageFrames = 0;
+    ++animal.age;
+    if (animal.age < animal.lifespan) {
+        return false;
+    }
+
+    KillAnimal(animal);
+    return true;
 }
 
 void Simulation::UpdateGrass() {
@@ -292,6 +317,18 @@ bool Simulation::TrySpawnAnimal(Species species, const Vec2& position) {
         animal.breedTarget = species == Species::Herbivore
             ? random_.Int(2, 4)
             : random_.Int(6, 9);
+        animal.age = 0;
+        animal.ageFrames = 0;
+
+        const int configuredMinLifespan = species == Species::Herbivore
+            ? config_.herbivoreLifespanMin
+            : config_.carnivoreLifespanMin;
+        const int configuredMaxLifespan = species == Species::Herbivore
+            ? config_.herbivoreLifespanMax
+            : config_.carnivoreLifespanMax;
+        const int minLifespan = std::max(1, std::min(configuredMinLifespan, configuredMaxLifespan));
+        const int maxLifespan = std::max(minLifespan, std::max(configuredMinLifespan, configuredMaxLifespan));
+        animal.lifespan = random_.Int(minLifespan, maxLifespan);
         return true;
     }
     return false;

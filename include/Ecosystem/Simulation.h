@@ -45,6 +45,9 @@ struct Animal {
     float energy = 0.0f;
     int meals = 0;
     int breedTarget = 0;
+    int age = 0;
+    int ageFrames = 0;
+    int lifespan = 0;
 };
 
 struct Grass {
@@ -88,6 +91,14 @@ struct SimulationConfig {
     int carnivoreOffspringMin = 1;
     int carnivoreOffspringMax = 1;
 
+    // The original HSP source had a lifespan of 8-12, but aging was disabled.
+    // One age unit advances every framesPerAge simulation updates.
+    int framesPerAge = 600;
+    int herbivoreLifespanMin = 8;
+    int herbivoreLifespanMax = 12;
+    int carnivoreLifespanMin = 8;
+    int carnivoreLifespanMax = 12;
+
     int grassFromDeath = 5;
     int grassSeedGrowMinFrames = 100;
     int grassSeedGrowMaxFrames = 199;
@@ -121,6 +132,7 @@ private:
     void UpdateHerbivore(std::size_t index);
     void UpdateCarnivore(std::size_t index);
     void UpdateState(Animal& animal);
+    bool AdvanceAge(Animal& animal);
     void UpdateGrass();
     void Wander(Animal& animal, float speed);
     void MoveToward(Animal& animal, const Vec2& target, float speed);

@@ -261,11 +261,68 @@ void Simulation::MoveAway(Animal& animal, const Vec2& target, float speed) {
         return;
     }
 
-    const float deltaX = dx / length * speed;
-    const float deltaY = dy / length * speed;
+    float deltaX = dx / length * speed;
+    float deltaY = dy / length * speed;
+
+    const float maxX = static_cast<float>(SimulationConfig::Width - 1);
+    const float maxY = static_cast<float>(SimulationConfig::Height - 1);
+    const float nextX = animal.position.x + deltaX;
+    const float nextY = animal.position.y + deltaY;
+    const bool directMoveInside =
+        nextX >= 0.0f && nextX <= maxX &&
+        nextY >= 0.0f && nextY <= maxY;
+
+    // If the straight escape direction points outside the world, do not keep
+    // pushing against the boundary. Slide along a legal axis instead and pick
+    // the step that leaves the animal farthest from the predator.
+    if (!directMoveInside) {
+        const Vec2 candidates[] = {
+            { speed, 0.0f },
+            { -speed, 0.0f },
+            { 0.0f, speed },
+            { 0.0f, -speed },
+        };
+
+        bool foundCandidate = false;
+        float bestDistance = -1.0f;
+        float bestDeltaX = 0.0f;
+        float bestDeltaY = 0.0f;
+
+        for (const auto& candidate : candidates) {
+            const float candidateX = animal.position.x + candidate.x;
+            const float candidateY = animal.position.y + candidate.y;
+            if (candidateX < 0.0f || candidateX > maxX ||
+                candidateY < 0.0f || candidateY > maxY) {
+                continue;
+            }
+
+            const Vec2 candidatePosition{ candidateX, candidateY };
+            const float distance = DistanceSquared(candidatePosition, target);
+            if (!foundCandidate || distance > bestDistance) {
+                foundCandidate = true;
+                bestDistance = distance;
+                bestDeltaX = candidate.x;
+                bestDeltaY = candidate.y;
+            }
+        }
+
+        if (foundCandidate) {
+            deltaX = bestDeltaX;
+            deltaY = bestDeltaY;
+        } else {
+            // Extremely small worlds or unusually large speeds may leave no
+            // full-speed candidate. Fall back to the largest legal partial step.
+            const float clampedX = std::clamp(nextX, 0.0f, maxX);
+            const float clampedY = std::clamp(nextY, 0.0f, maxY);
+            deltaX = clampedX - animal.position.x;
+            deltaY = clampedY - animal.position.y;
+        }
+    }
+
     UpdateFacing(animal, deltaX);
-    animal.moving = true;
-    animal.animationDistance += std::abs(speed);
+    const float movedDistance = std::sqrt(deltaX * deltaX + deltaY * deltaY);
+    animal.moving = movedDistance > 0.0001f;
+    animal.animationDistance += movedDistance;
     animal.position.x += deltaX;
     animal.position.y += deltaY;
 }

@@ -14,12 +14,17 @@ namespace {
 constexpr int SpriteSheetId = 100;
 constexpr int CellSize = 24;
 constexpr int Columns = 4;
-constexpr int Rows = 1;
+constexpr int Rows = 3;
 constexpr int SheetWidth = CellSize * Columns;
 constexpr int SheetHeight = CellSize * Rows;
 constexpr const char* SpriteSheetPath = "assets/img.bmp";
 
 using Pattern = std::array<std::string_view, CellSize>;
+
+// Sprite sheet layout (4 x 3):
+// row 0: Grass, Seed, -, -
+// row 1: Herbivore Walk1, Walk2, Run1, Run2
+// row 2: Carnivore Walk1, Walk2, Run1, Run2
 
 constexpr Pattern GrassPattern = {
     "........................",
@@ -44,6 +49,33 @@ constexpr Pattern GrassPattern = {
     ".....ddddglllgggglll....",
     "....ddddddddddddddddd...",
     "....ddddddddddddddddd...",
+    "........................",
+    "........................",
+};
+
+constexpr Pattern SeedPattern = {
+    "........................",
+    "........................",
+    "........................",
+    "........................",
+    "........................",
+    "........................",
+    "........................",
+    "............g...........",
+    "...........gg...........",
+    "..........gg............",
+    "...........g............",
+    "...........SS...........",
+    "..........SSSS..........",
+    ".........SSSSSS.........",
+    ".........SSSSSS.........",
+    ".........sSSSSs.........",
+    "..........ssss..........",
+    "...........ss...........",
+    "........................",
+    "........................",
+    "........................",
+    "........................",
     "........................",
     "........................",
 };
@@ -102,33 +134,6 @@ constexpr Pattern CarnivorePattern = {
     "........................",
 };
 
-constexpr Pattern SeedPattern = {
-    "........................",
-    "........................",
-    "........................",
-    "........................",
-    "........................",
-    "........................",
-    "........................",
-    "............g...........",
-    "...........gg...........",
-    "..........gg............",
-    "...........g............",
-    "...........SS...........",
-    "..........SSSS..........",
-    ".........SSSSSS.........",
-    ".........SSSSSS.........",
-    ".........sSSSSs.........",
-    "..........ssss..........",
-    "...........ss...........",
-    "........................",
-    "........................",
-    "........................",
-    "........................",
-    "........................",
-    "........................",
-};
-
 struct Rgb {
     std::uint8_t r;
     std::uint8_t g;
@@ -155,6 +160,40 @@ constexpr Rgb ColorFor(char pixel) {
     }
 }
 
+Rgb PatternPixel(const Pattern& pattern, int x, int y, int offsetX = 0, int offsetY = 0) {
+    const int sourceX = x - offsetX;
+    const int sourceY = y - offsetY;
+    if (sourceX < 0 || sourceX >= CellSize || sourceY < 0 || sourceY >= CellSize) {
+        return ColorFor('.');
+    }
+    return ColorFor(pattern[static_cast<std::size_t>(sourceY)][static_cast<std::size_t>(sourceX)]);
+}
+
+Rgb SheetPixel(int x, int y) {
+    const int column = x / CellSize;
+    const int row = y / CellSize;
+    const int localX = x % CellSize;
+    const int localY = y % CellSize;
+    const int cell = row * Columns + column;
+
+    switch (cell) {
+    case 0: return PatternPixel(GrassPattern, localX, localY);
+    case 1: return PatternPixel(SeedPattern, localX, localY);
+
+    case 4: return PatternPixel(HerbivorePattern, localX, localY, 0, 0);
+    case 5: return PatternPixel(HerbivorePattern, localX, localY, 0, 1);
+    case 6: return PatternPixel(HerbivorePattern, localX, localY, -1, -1);
+    case 7: return PatternPixel(HerbivorePattern, localX, localY, 1, 0);
+
+    case 8: return PatternPixel(CarnivorePattern, localX, localY, 0, 0);
+    case 9: return PatternPixel(CarnivorePattern, localX, localY, 0, 1);
+    case 10: return PatternPixel(CarnivorePattern, localX, localY, -1, -1);
+    case 11: return PatternPixel(CarnivorePattern, localX, localY, 1, 0);
+
+    default: return ColorFor('.');
+    }
+}
+
 void Put16(std::vector<unsigned char>& out, std::size_t offset, std::uint16_t value) {
     out[offset] = static_cast<unsigned char>(value & 0xffu);
     out[offset + 1] = static_cast<unsigned char>((value >> 8u) & 0xffu);
@@ -165,21 +204,6 @@ void Put32(std::vector<unsigned char>& out, std::size_t offset, std::uint32_t va
     out[offset + 1] = static_cast<unsigned char>((value >> 8u) & 0xffu);
     out[offset + 2] = static_cast<unsigned char>((value >> 16u) & 0xffu);
     out[offset + 3] = static_cast<unsigned char>((value >> 24u) & 0xffu);
-}
-
-Rgb SheetPixel(int x, int y) {
-    const int cell = x / CellSize;
-    const int localX = x % CellSize;
-
-    const Pattern* pattern = nullptr;
-    switch (cell) {
-    case 0: pattern = &GrassPattern; break;
-    case 1: pattern = &HerbivorePattern; break;
-    case 2: pattern = &CarnivorePattern; break;
-    default: pattern = &SeedPattern; break;
-    }
-
-    return ColorFor((*pattern)[static_cast<std::size_t>(y)][static_cast<std::size_t>(localX)]);
 }
 
 bool WriteSpriteSheetBmp() {

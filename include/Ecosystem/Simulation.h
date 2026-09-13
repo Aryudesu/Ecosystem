@@ -58,6 +58,13 @@ struct Grass {
     int growthTarget = 0;
 };
 
+struct DeathEffect {
+    bool active = false;
+    Species species = Species::Herbivore;
+    Vec2 position{};
+    int remainingFrames = 0;
+};
+
 struct SimulationConfig {
     static constexpr int Width = 640;
     static constexpr int Height = 480;
@@ -99,6 +106,9 @@ struct SimulationConfig {
     int carnivoreLifespanMin = 8;
     int carnivoreLifespanMax = 12;
 
+    // Death effects are counted in rendered frames, not simulation steps.
+    int deathDisplayFrames = 30;
+
     int grassFromDeath = 5;
     int grassSeedGrowMinFrames = 100;
     int grassSeedGrowMaxFrames = 199;
@@ -115,11 +125,13 @@ class Simulation {
 public:
     using AnimalArray = std::array<Animal, SimulationConfig::MaxObjects>;
     using GrassArray = std::array<Grass, SimulationConfig::MaxObjects>;
+    using DeathEffectArray = std::array<DeathEffect, SimulationConfig::MaxObjects>;
 
     explicit Simulation(mygame::Random& random, SimulationConfig config = {});
 
     void Reset();
     void Update();
+    void UpdateVisualEffects();
     void Draw() const;
 
     [[nodiscard]] Population GetPopulation() const;
@@ -127,6 +139,7 @@ public:
     [[nodiscard]] float SenseRadius() const { return config_.senseRadius; }
     [[nodiscard]] const AnimalArray& Animals() const { return animals_; }
     [[nodiscard]] const GrassArray& GrassItems() const { return grass_; }
+    [[nodiscard]] const DeathEffectArray& DeathEffects() const { return deathEffects_; }
 
 private:
     void UpdateHerbivore(std::size_t index);
@@ -146,6 +159,7 @@ private:
     bool TrySpawnAnimal(Species species, const Vec2& position);
     bool TrySpawnGrass(const Vec2& position, GrassState state = GrassState::Mature, int growthTarget = 0);
     void SpawnGrassAround(const Vec2& position, int count);
+    void SpawnDeathEffect(Species species, const Vec2& position);
     void KillAnimal(Animal& animal);
     void TryBreed(std::size_t index);
     void TryRegrowGrass();
@@ -158,6 +172,7 @@ private:
     SimulationConfig config_;
     AnimalArray animals_{};
     GrassArray grass_{};
+    DeathEffectArray deathEffects_{};
     unsigned long long frame_ = 0;
 };
 

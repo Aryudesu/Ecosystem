@@ -27,6 +27,11 @@ enum class GrassState {
     Seed,
 };
 
+enum class AnimalMotion {
+    Walk,
+    Run,
+};
+
 struct Animal {
     bool active = false;
     Species species = Species::Herbivore;
@@ -34,6 +39,8 @@ struct Animal {
     Vec2 position{};
     Vec2 wanderDirection{1.0f, 0.0f};
     bool facingLeft = false;
+    bool moving = false;
+    AnimalMotion motion = AnimalMotion::Walk;
     float energy = 0.0f;
     int meals = 0;
     int breedTarget = 0;

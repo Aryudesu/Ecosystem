@@ -19,7 +19,7 @@ void DrawSimulation(const Simulation& simulation) {
     for (const auto& grass : simulation.GrassItems()) {
         if (!grass.active) continue;
         DrawSprite(
-            SpriteIndex::Grass,
+            grass.state == GrassState::Seed ? SpriteIndex::Seed : SpriteIndex::Grass,
             static_cast<int>(grass.position.x),
             static_cast<int>(grass.position.y));
     }
@@ -33,7 +33,7 @@ void DrawSimulation(const Simulation& simulation) {
             ? SpriteIndex::Herbivore
             : SpriteIndex::Carnivore;
 
-        DrawSprite(sprite, x, y);
+        DrawSprite(sprite, x, y, animal.facingLeft);
 
         if (animal.state == LifeState::Hungry) {
             DrawCircle(x, y, 13, hungryColor, FALSE, 1);

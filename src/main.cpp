@@ -38,20 +38,20 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
         if (input.IsPressed(KEY_INPUT_UP)) stepsPerFrame = std::min(16, stepsPerFrame * 2);
         if (input.IsPressed(KEY_INPUT_DOWN)) stepsPerFrame = std::max(1, stepsPerFrame / 2);
 
-        bool simulationAdvanced = false;
-        if (!paused) {
-            for (int i = 0; i < stepsPerFrame; ++i) simulation.Update();
-            simulationAdvanced = true;
-        } else if (stepOnce) {
-            simulation.Update();
-            simulationAdvanced = true;
-        }
-        stepOnce = false;
+        const bool simulationAdvanced = !paused || stepOnce;
 
-        // Death effects use rendered frames so they remain visible even at x16 simulation speed.
+        // Age existing death effects once per rendered frame. Do this before the
+        // simulation update so a corpse created this frame gets its full lifetime.
         if (simulationAdvanced) {
             simulation.UpdateVisualEffects();
         }
+
+        if (!paused) {
+            for (int i = 0; i < stepsPerFrame; ++i) simulation.Update();
+        } else if (stepOnce) {
+            simulation.Update();
+        }
+        stepOnce = false;
 
         ClearDrawScreen();
         DrawBox(0, 0, ecosystem::SimulationConfig::Width, ecosystem::SimulationConfig::Height,

@@ -291,7 +291,7 @@ bool Simulation::TrySpawnAnimal(Species species, const Vec2& position) {
             : config_.carnivoreMaxEnergy;
         animal.breedTarget = species == Species::Herbivore
             ? random_.Int(2, 4)
-            : random_.Int(4, 6);
+            : random_.Int(6, 9);
         return true;
     }
     return false;
@@ -374,7 +374,7 @@ void Simulation::TryBreed(std::size_t index) {
         animal.meals = 0;
         animal.breedTarget = animal.species == Species::Herbivore
             ? random_.Int(2, 4)
-            : random_.Int(4, 6);
+            : random_.Int(6, 9);
         animal.state = LifeState::Normal;
     }
 }

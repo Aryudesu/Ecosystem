@@ -160,13 +160,59 @@ constexpr Rgb ColorFor(char pixel) {
     }
 }
 
-Rgb PatternPixel(const Pattern& pattern, int x, int y, int offsetX = 0, int offsetY = 0) {
-    const int sourceX = x - offsetX;
-    const int sourceY = y - offsetY;
-    if (sourceX < 0 || sourceX >= CellSize || sourceY < 0 || sourceY >= CellSize) {
+Rgb PatternPixel(const Pattern& pattern, int x, int y) {
+    if (x < 0 || x >= CellSize || y < 0 || y >= CellSize) {
         return ColorFor('.');
     }
-    return ColorFor(pattern[static_cast<std::size_t>(sourceY)][static_cast<std::size_t>(sourceX)]);
+    return ColorFor(pattern[static_cast<std::size_t>(y)][static_cast<std::size_t>(x)]);
+}
+
+enum class AnimalPose {
+    Walk1,
+    Walk2,
+    Run1,
+    Run2,
+};
+
+Rgb AnimalPosePixel(const Pattern& pattern, int x, int y, AnimalPose pose) {
+    int bodyOffsetX = 0;
+    int bodyOffsetY = 0;
+    int legStride = 0;
+
+    switch (pose) {
+    case AnimalPose::Walk1:
+        legStride = -1;
+        break;
+    case AnimalPose::Walk2:
+        bodyOffsetY = 1;
+        legStride = 1;
+        break;
+    case AnimalPose::Run1:
+        bodyOffsetX = -1;
+        bodyOffsetY = -1;
+        legStride = -2;
+        break;
+    case AnimalPose::Run2:
+        bodyOffsetX = 1;
+        bodyOffsetY = 1;
+        legStride = 2;
+        break;
+    }
+
+    int sourceX = x - bodyOffsetX;
+    int sourceY = y - bodyOffsetY;
+
+    // Separate the two lower halves in opposite directions so the legs visibly stride.
+    // This deliberately exaggerates the motion at 24x24 resolution.
+    if (y >= 18) {
+        if (x < CellSize / 2) {
+            sourceX += legStride;
+        } else {
+            sourceX -= legStride;
+        }
+    }
+
+    return PatternPixel(pattern, sourceX, sourceY);
 }
 
 Rgb SheetPixel(int x, int y) {
@@ -180,15 +226,15 @@ Rgb SheetPixel(int x, int y) {
     case 0: return PatternPixel(GrassPattern, localX, localY);
     case 1: return PatternPixel(SeedPattern, localX, localY);
 
-    case 4: return PatternPixel(HerbivorePattern, localX, localY, 0, 0);
-    case 5: return PatternPixel(HerbivorePattern, localX, localY, 0, 1);
-    case 6: return PatternPixel(HerbivorePattern, localX, localY, -1, -1);
-    case 7: return PatternPixel(HerbivorePattern, localX, localY, 1, 0);
+    case 4: return AnimalPosePixel(HerbivorePattern, localX, localY, AnimalPose::Walk1);
+    case 5: return AnimalPosePixel(HerbivorePattern, localX, localY, AnimalPose::Walk2);
+    case 6: return AnimalPosePixel(HerbivorePattern, localX, localY, AnimalPose::Run1);
+    case 7: return AnimalPosePixel(HerbivorePattern, localX, localY, AnimalPose::Run2);
 
-    case 8: return PatternPixel(CarnivorePattern, localX, localY, 0, 0);
-    case 9: return PatternPixel(CarnivorePattern, localX, localY, 0, 1);
-    case 10: return PatternPixel(CarnivorePattern, localX, localY, -1, -1);
-    case 11: return PatternPixel(CarnivorePattern, localX, localY, 1, 0);
+    case 8: return AnimalPosePixel(CarnivorePattern, localX, localY, AnimalPose::Walk1);
+    case 9: return AnimalPosePixel(CarnivorePattern, localX, localY, AnimalPose::Walk2);
+    case 10: return AnimalPosePixel(CarnivorePattern, localX, localY, AnimalPose::Run1);
+    case 11: return AnimalPosePixel(CarnivorePattern, localX, localY, AnimalPose::Run2);
 
     default: return ColorFor('.');
     }

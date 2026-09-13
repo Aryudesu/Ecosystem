@@ -59,8 +59,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
         ecosystem::graphics::DrawSimulation(simulation);
 
         const auto population = simulation.GetPopulation();
+        const auto& statistics = simulation.GetStatistics();
         SetDrawBlendMode(DX_BLENDMODE_ALPHA, 190);
-        DrawBox(4, 4, 308, 83, GetColor(0, 0, 0), TRUE);
+        DrawBox(4, 4, 620, 136, GetColor(0, 0, 0), TRUE);
         SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
         DrawFormatString(12, 10, GetColor(255, 255, 255),
             "Carnivore: %d  Herbivore: %d  Grass: %d",
@@ -68,7 +69,20 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
         DrawFormatString(12, 31, GetColor(255, 255, 255),
             "Frame: %llu  Speed: x%d  %s",
             simulation.Frame(), stepsPerFrame, paused ? "PAUSED" : "RUNNING");
-        DrawString(12, 52,
+        DrawFormatString(12, 52, GetColor(225, 225, 225),
+            "Births  Herbivore: %llu  Carnivore: %llu",
+            statistics.herbivore.births, statistics.carnivore.births);
+        DrawFormatString(12, 73, GetColor(225, 225, 225),
+            "Herbivore deaths  Age: %llu  Starve: %llu  Predation: %llu",
+            statistics.herbivore.oldAgeDeaths,
+            statistics.herbivore.starvationDeaths,
+            statistics.herbivore.predationDeaths);
+        DrawFormatString(12, 94, GetColor(225, 225, 225),
+            "Carnivore deaths  Age: %llu  Starve: %llu  Predation: %llu",
+            statistics.carnivore.oldAgeDeaths,
+            statistics.carnivore.starvationDeaths,
+            statistics.carnivore.predationDeaths);
+        DrawString(12, 115,
             "SPACE pause / N step / R reset / UP-DOWN speed / ESC exit",
             GetColor(210, 210, 210));
 

@@ -38,12 +38,20 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
         if (input.IsPressed(KEY_INPUT_UP)) stepsPerFrame = std::min(16, stepsPerFrame * 2);
         if (input.IsPressed(KEY_INPUT_DOWN)) stepsPerFrame = std::max(1, stepsPerFrame / 2);
 
+        bool simulationAdvanced = false;
         if (!paused) {
             for (int i = 0; i < stepsPerFrame; ++i) simulation.Update();
+            simulationAdvanced = true;
         } else if (stepOnce) {
             simulation.Update();
+            simulationAdvanced = true;
         }
         stepOnce = false;
+
+        // Death effects use rendered frames so they remain visible even at x16 simulation speed.
+        if (simulationAdvanced) {
+            simulation.UpdateVisualEffects();
+        }
 
         ClearDrawScreen();
         DrawBox(0, 0, ecosystem::SimulationConfig::Width, ecosystem::SimulationConfig::Height,

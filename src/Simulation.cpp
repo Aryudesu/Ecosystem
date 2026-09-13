@@ -81,14 +81,22 @@ void Simulation::UpdateVisualEffects() {
 }
 
 void Simulation::UpdateState(Animal& animal) {
-    if (!animal.active || animal.state == LifeState::Breeding) return;
+    if (!animal.active) return;
 
     const float hungryEnergy = animal.species == Species::Herbivore
         ? config_.herbivoreHungryEnergy
         : config_.carnivoreHungryEnergy;
 
-    animal.state = animal.energy <= hungryEnergy
-        ? LifeState::Hungry
+    // Hunger takes priority over breeding so an animal that has already met
+    // its breeding target can temporarily return to feeding instead of starving
+    // while searching for a partner.
+    if (animal.energy <= hungryEnergy) {
+        animal.state = LifeState::Hungry;
+        return;
+    }
+
+    animal.state = animal.meals >= animal.breedTarget
+        ? LifeState::Breeding
         : LifeState::Normal;
 }
 
@@ -311,6 +319,20 @@ int Simulation::FindNearestGrass(const Animal& from, float maxDistance) const {
 }
 
 bool Simulation::TrySpawnAnimal(Species species, const Vec2& position) {
+    const std::size_t speciesLimit = species == Species::Herbivore
+        ? SimulationConfig::MaxHerbivores
+        : SimulationConfig::MaxCarnivores;
+
+    std::size_t speciesCount = 0;
+    for (const auto& animal : animals_) {
+        if (animal.active && animal.species == species) {
+            ++speciesCount;
+        }
+    }
+    if (speciesCount >= speciesLimit) {
+        return false;
+    }
+
     for (auto& animal : animals_) {
         if (animal.active) continue;
 
@@ -428,7 +450,10 @@ void Simulation::KillAnimal(Animal& animal, DeathCause cause) {
 
 void Simulation::TryBreed(std::size_t index) {
     auto& animal = animals_[index];
-    const int partnerIndex = FindNearestAnimal(animal, animal.species, config_.senseRadius, true);
+    const float breedSenseRadius = animal.species == Species::Herbivore
+        ? config_.herbivoreBreedSenseRadius
+        : config_.carnivoreBreedSenseRadius;
+    const int partnerIndex = FindNearestAnimal(animal, animal.species, breedSenseRadius, true);
     if (partnerIndex < 0) {
         Wander(animal, animal.species == Species::Herbivore
             ? config_.herbivoreWanderSpeed

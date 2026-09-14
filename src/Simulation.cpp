@@ -675,7 +675,15 @@ void Simulation::TryBreed(std::size_t index) {
             ? statistics_.herbivore
             : statistics_.carnivore;
         speciesStats.births += static_cast<unsigned long long>(spawnedOffspring);
+    }
 
+    const bool herbivoreAttemptBlockedByCapacity =
+        animal.species == Species::Herbivore && offspringTarget > 0 && spawnedOffspring == 0;
+    if (spawnedOffspring > 0 || herbivoreAttemptBlockedByCapacity) {
+        // A herbivore that reached a mate has spent this breeding opportunity
+        // even when the population cap prevents offspring from being created.
+        // This avoids accumulating a large queue of ready-to-breed animals that
+        // instantly refill every slot opened by predation.
         animal.meals = 0;
         animal.breedTarget = animal.species == Species::Herbivore
             ? random_.Int(2, 4)

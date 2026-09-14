@@ -555,12 +555,29 @@ void Simulation::TryBreed(std::size_t index) {
         (animal.position.y + partner.position.y) * 0.5f,
     };
 
-    const int configuredMin = animal.species == Species::Herbivore
-        ? config_.herbivoreOffspringMin
-        : config_.carnivoreOffspringMin;
-    const int configuredMax = animal.species == Species::Herbivore
-        ? config_.herbivoreOffspringMax
-        : config_.carnivoreOffspringMax;
+    int configuredMin = config_.carnivoreOffspringMin;
+    int configuredMax = config_.carnivoreOffspringMax;
+    if (animal.species == Species::Herbivore) {
+        const int herbivorePopulation = GetPopulation().herbivores;
+        const int lowDensityThreshold = std::min(
+            config_.herbivoreLowDensityThreshold,
+            config_.herbivoreHighDensityThreshold);
+        const int highDensityThreshold = std::max(
+            config_.herbivoreLowDensityThreshold,
+            config_.herbivoreHighDensityThreshold);
+
+        if (herbivorePopulation < lowDensityThreshold) {
+            configuredMin = config_.herbivoreLowDensityOffspringMin;
+            configuredMax = config_.herbivoreLowDensityOffspringMax;
+        } else if (herbivorePopulation < highDensityThreshold) {
+            configuredMin = config_.herbivoreMidDensityOffspringMin;
+            configuredMax = config_.herbivoreMidDensityOffspringMax;
+        } else {
+            configuredMin = config_.herbivoreHighDensityOffspringMin;
+            configuredMax = config_.herbivoreHighDensityOffspringMax;
+        }
+    }
+
     const int minOffspring = std::max(0, std::min(configuredMin, configuredMax));
     const int maxOffspring = std::max(minOffspring, std::max(configuredMin, configuredMax));
     const int offspringTarget = random_.Int(minOffspring, maxOffspring);

@@ -136,7 +136,39 @@ void Simulation::UpdateGrass() {
 void Simulation::UpdateHerbivore(std::size_t index) {
     auto& animal = animals_[index];
 
-    const int predatorIndex = FindNearestAnimal(animal, Species::Carnivore, config_.senseRadius);
+    const float emergencyRadius = std::max(0.0f, config_.herbivoreEmergencyFleeRadius);
+    const float awarenessRadius = std::max(emergencyRadius, std::max(0.0f, config_.senseRadius));
+    const float emergencyLimit = emergencyRadius * emergencyRadius;
+    const float awarenessLimit = awarenessRadius * awarenessRadius;
+
+    int emergencyPredatorIndex = -1;
+    int hungryPredatorIndex = -1;
+    float nearestEmergencyDistance = std::numeric_limits<float>::max();
+    float nearestHungryDistance = std::numeric_limits<float>::max();
+
+    for (std::size_t i = 0; i < animals_.size(); ++i) {
+        const auto& predator = animals_[i];
+        if (!predator.active || predator.species != Species::Carnivore) continue;
+
+        const float distance = DistanceSquared(animal.position, predator.position);
+        if (distance <= emergencyLimit && distance < nearestEmergencyDistance) {
+            nearestEmergencyDistance = distance;
+            emergencyPredatorIndex = static_cast<int>(i);
+        }
+
+        const bool predatorHungry = predator.energy <= config_.carnivoreHungryEnergy;
+        if (predatorHungry && distance <= awarenessLimit && distance < nearestHungryDistance) {
+            nearestHungryDistance = distance;
+            hungryPredatorIndex = static_cast<int>(i);
+        }
+    }
+
+    // A carnivore that is extremely close is always treated as a threat. At
+    // longer range, only a hungry carnivore interrupts feeding or breeding so a
+    // harmless nearby carnivore cannot keep herbivores pinned away from food.
+    const int predatorIndex = emergencyPredatorIndex >= 0
+        ? emergencyPredatorIndex
+        : hungryPredatorIndex;
     if (predatorIndex >= 0) {
         animal.motion = AnimalMotion::Run;
         MoveAway(animal, animals_[static_cast<std::size_t>(predatorIndex)].position, config_.herbivoreFleeSpeed);

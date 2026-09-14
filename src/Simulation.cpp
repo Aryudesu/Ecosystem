@@ -185,8 +185,37 @@ void Simulation::UpdateCarnivore(std::size_t index) {
     }
 
     if (animal.state == LifeState::Hungry) {
+        int herbivorePopulation = 0;
+        for (const auto& candidate : animals_) {
+            if (candidate.active && candidate.species == Species::Herbivore) {
+                ++herbivorePopulation;
+            }
+        }
+
+        const int baseOnlyThreshold = std::max(
+            0,
+            std::min(
+                config_.carnivoreBaseOnlyPreySensePopulation,
+                config_.carnivoreReducedPreySensePopulation));
+        const int reducedSenseThreshold = std::max(
+            baseOnlyThreshold,
+            std::max(
+                config_.carnivoreBaseOnlyPreySensePopulation,
+                config_.carnivoreReducedPreySensePopulation));
+
         float preySenseRadius = config_.carnivorePreySenseRadius;
-        if (animal.energy <= config_.carnivoreCriticalEnergy) {
+        if (herbivorePopulation < baseOnlyThreshold) {
+            // When prey is very scarce, keep the normal local search radius even
+            // for critically hungry carnivores so the last herbivores are not
+            // globally swept up by desperation sensing.
+            preySenseRadius = config_.carnivorePreySenseRadius;
+        } else if (herbivorePopulation < reducedSenseThreshold) {
+            // At low prey density, allow the first desperation boost but cap the
+            // search before the critical 160-radius sweep.
+            if (animal.energy <= config_.carnivoreDesperateEnergy) {
+                preySenseRadius = config_.carnivoreDesperatePreySenseRadius;
+            }
+        } else if (animal.energy <= config_.carnivoreCriticalEnergy) {
             preySenseRadius = config_.carnivoreCriticalPreySenseRadius;
         } else if (animal.energy <= config_.carnivoreDesperateEnergy) {
             preySenseRadius = config_.carnivoreDesperatePreySenseRadius;

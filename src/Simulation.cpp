@@ -399,6 +399,20 @@ int Simulation::FindNearestGrass(const Animal& from, float maxDistance) const {
     return bestIndex;
 }
 
+int Simulation::CountGrassNear(const Vec2& position, float radius) const {
+    const float safeRadius = std::max(0.0f, radius);
+    const float limit = safeRadius * safeRadius;
+    int count = 0;
+
+    for (const auto& grass : grass_) {
+        if (!grass.active) continue;
+        if (DistanceSquared(position, grass.position) <= limit) {
+            ++count;
+        }
+    }
+    return count;
+}
+
 bool Simulation::TrySpawnAnimal(Species species, const Vec2& position) {
     const std::size_t speciesLimit = species == Species::Herbivore
         ? SimulationConfig::MaxHerbivores
@@ -467,12 +481,19 @@ bool Simulation::TrySpawnGrass(const Vec2& position, GrassState state, int growt
 void Simulation::SpawnGrassAround(const Vec2& position, int count) {
     const int minGrow = std::min(config_.grassSeedGrowMinFrames, config_.grassSeedGrowMaxFrames);
     const int maxGrow = std::max(config_.grassSeedGrowMinFrames, config_.grassSeedGrowMaxFrames);
+    const int localLimit = std::max(1, config_.grassLocalDensityLimit);
 
     for (int i = 0; i < count; ++i) {
         Vec2 p{
             position.x + static_cast<float>(random_.Int(-24, 24)),
             position.y + static_cast<float>(random_.Int(-24, 24)),
         };
+        p.x = std::clamp(p.x, 0.0f, static_cast<float>(SimulationConfig::Width - 1));
+        p.y = std::clamp(p.y, 0.0f, static_cast<float>(SimulationConfig::Height - 1));
+
+        if (CountGrassNear(p, config_.grassLocalDensityRadius) >= localLimit) {
+            continue;
+        }
         if (!TrySpawnGrass(p, GrassState::Seed, random_.Int(minGrow, maxGrow))) return;
     }
 }
@@ -603,9 +624,25 @@ void Simulation::TryBreed(std::size_t index) {
 }
 
 void Simulation::TryRegrowGrass() {
-    if (config_.grassRegrowFrames <= 0 || frame_ % static_cast<unsigned long long>(config_.grassRegrowFrames) != 0) return;
-    if (GetPopulation().grass >= config_.initialGrass) return;
-    TrySpawnGrass(RandomPosition());
+    if (config_.grassRegrowFrames <= 0 ||
+        frame_ % static_cast<unsigned long long>(config_.grassRegrowFrames) != 0) {
+        return;
+    }
+    if (GetPopulation().grass >= static_cast<int>(SimulationConfig::MaxGrass)) {
+        return;
+    }
+
+    const int localLimit = std::max(1, config_.grassLocalDensityLimit);
+    const int attempts = std::max(1, config_.grassRegrowAttempts);
+    for (int attempt = 0; attempt < attempts; ++attempt) {
+        const Vec2 position = RandomPosition();
+        if (CountGrassNear(position, config_.grassLocalDensityRadius) >= localLimit) {
+            continue;
+        }
+        if (TrySpawnGrass(position)) {
+            return;
+        }
+    }
 }
 
 float Simulation::DistanceSquared(const Vec2& a, const Vec2& b) const {

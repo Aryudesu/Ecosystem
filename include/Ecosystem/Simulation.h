@@ -96,6 +96,10 @@ struct SimulationConfig {
     float carnivoreCriticalPreySenseRadius = 160.0f;
     float carnivoreDesperateEnergy = 30.0f;
     float carnivoreCriticalEnergy = 15.0f;
+    // When prey becomes scarce, suppress the hunger-based long-range search so
+    // the last few herbivores are harder to locate and can recover.
+    int carnivoreReducedPreySensePopulation = 100;
+    int carnivoreBaseOnlyPreySensePopulation = 50;
     float herbivoreBreedSenseRadius = 64.0f;
     float carnivoreBreedSenseRadius = 800.0f;
     float interactionRadius = 16.0f;

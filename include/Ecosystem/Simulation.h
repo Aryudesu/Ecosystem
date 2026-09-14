@@ -143,6 +143,9 @@ struct SimulationConfig {
     int grassSeedGrowMinFrames = 100;
     int grassSeedGrowMaxFrames = 199;
     int grassRegrowFrames = 24;
+    float grassLocalDensityRadius = 32.0f;
+    int grassLocalDensityLimit = 6;
+    int grassRegrowAttempts = 8;
 };
 
 struct Population {
@@ -198,6 +201,7 @@ private:
 
     int FindNearestAnimal(const Animal& from, Species species, float maxDistance, bool breedingPartner = false) const;
     int FindNearestGrass(const Animal& from, float maxDistance) const;
+    int CountGrassNear(const Vec2& position, float radius) const;
 
     bool TrySpawnAnimal(Species species, const Vec2& position);
     bool TrySpawnGrass(const Vec2& position, GrassState state = GrassState::Mature, int growthTarget = 0);

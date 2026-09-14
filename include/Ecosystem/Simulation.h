@@ -115,9 +115,16 @@ struct SimulationConfig {
     float herbivoreFoodEnergy = 42.0f;
     float carnivoreFoodEnergy = 72.0f;
 
-    // Litter size per successful breeding event.
-    int herbivoreOffspringMin = 2;
-    int herbivoreOffspringMax = 3;
+    // Herbivore litter size decreases as population density rises so a low
+    // population can recover without repeatedly rushing straight to the cap.
+    int herbivoreLowDensityThreshold = 100;
+    int herbivoreHighDensityThreshold = 200;
+    int herbivoreLowDensityOffspringMin = 2;
+    int herbivoreLowDensityOffspringMax = 3;
+    int herbivoreMidDensityOffspringMin = 1;
+    int herbivoreMidDensityOffspringMax = 2;
+    int herbivoreHighDensityOffspringMin = 1;
+    int herbivoreHighDensityOffspringMax = 1;
     int carnivoreOffspringMin = 1;
     int carnivoreOffspringMax = 1;
 

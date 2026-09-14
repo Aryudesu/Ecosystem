@@ -91,6 +91,8 @@ struct SimulationConfig {
     int initialGrass = 100;
 
     float senseRadius = 64.0f;
+    // Herbivores always flee from a carnivore this close, even when it is not hungry.
+    float herbivoreEmergencyFleeRadius = 32.0f;
     float carnivorePreySenseRadius = 64.0f;
     float carnivoreDesperatePreySenseRadius = 128.0f;
     float carnivoreCriticalPreySenseRadius = 160.0f;

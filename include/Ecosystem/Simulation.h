@@ -3,6 +3,7 @@
 #include <mygame/collision/Collision2D.h>
 #include <mygame/random/Random.h>
 
+#include <algorithm>
 #include <array>
 #include <cstddef>
 
@@ -93,9 +94,9 @@ struct SimulationConfig {
     float carnivoreEnergyCost = 0.10f;
     float herbivoreFoodEnergy = 42.0f;
     float carnivoreFoodEnergy = 72.0f;
-    // Only the animals placed by Reset use these ranges. Offspring keep their
-    // existing birth-energy rules, so this merely breaks the synchronized
-    // first hunger cycle at simulation start.
+    // Reset-created animals start at different energy levels so their first
+    // Hungry transition is not synchronized. Offspring keep the existing
+    // species-specific birth-energy behavior.
     float initialHerbivoreEnergyMin = 55.0f;
     float initialHerbivoreEnergyMax = 100.0f;
     float initialCarnivoreEnergyMin = 70.0f;
@@ -192,7 +193,23 @@ private:
     int FindNearestGrass(const Animal& from, float maxDistance) const;
     int CountGrassNear(const Vec2& position, float radius) const;
     int RandomHerbivoreBreedTarget();
-    bool TrySpawnAnimal(Species species, const Vec2& position, float initialEnergy = -1.0f);
+
+    // Two-argument calls are used by Reset. Randomize only those initial
+    // animals; breeding code passes an explicit third argument and therefore
+    // keeps its existing offspring-energy rules.
+    bool TrySpawnAnimal(Species species, const Vec2& position) {
+        const float configuredMin = species == Species::Herbivore
+            ? config_.initialHerbivoreEnergyMin
+            : config_.initialCarnivoreEnergyMin;
+        const float configuredMax = species == Species::Herbivore
+            ? config_.initialHerbivoreEnergyMax
+            : config_.initialCarnivoreEnergyMax;
+        const float minEnergy = std::min(configuredMin, configuredMax);
+        const float maxEnergy = std::max(configuredMin, configuredMax);
+        const float initialEnergy = static_cast<float>(random_.Real(minEnergy, maxEnergy));
+        return TrySpawnAnimal(species, position, initialEnergy);
+    }
+    bool TrySpawnAnimal(Species species, const Vec2& position, float initialEnergy);
     bool TrySpawnGrass(const Vec2& position, GrassState state = GrassState::Mature, int growthTarget = 0);
     void SpawnGrassAround(const Vec2& position, int count);
     void SpawnDeathEffect(Species species, const Vec2& position);

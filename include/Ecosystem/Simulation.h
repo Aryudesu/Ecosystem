@@ -3,6 +3,7 @@
 #include <mygame/collision/Collision2D.h>
 #include <mygame/random/Random.h>
 
+#include <algorithm>
 #include <array>
 #include <cstddef>
 
@@ -10,33 +11,11 @@ namespace ecosystem {
 
 using Vec2 = mygame::Vec2;
 
-enum class LifeState {
-    Inactive = 0,
-    Normal = 1,
-    Hungry = 2,
-    Breeding = 3,
-};
-
-enum class Species {
-    Herbivore,
-    Carnivore,
-};
-
-enum class GrassState {
-    Mature,
-    Seed,
-};
-
-enum class AnimalMotion {
-    Walk,
-    Run,
-};
-
-enum class DeathCause {
-    OldAge,
-    Starvation,
-    Predation,
-};
+enum class LifeState { Inactive = 0, Normal = 1, Hungry = 2, Breeding = 3 };
+enum class Species { Herbivore, Carnivore };
+enum class GrassState { Mature, Seed };
+enum class AnimalMotion { Walk, Run };
+enum class DeathCause { OldAge, Starvation, Predation };
 
 struct Animal {
     bool active = false;
@@ -115,12 +94,16 @@ struct SimulationConfig {
     float carnivoreEnergyCost = 0.10f;
     float herbivoreFoodEnergy = 42.0f;
     float carnivoreFoodEnergy = 72.0f;
+    // Reset-created animals start at different energy levels so their first
+    // Hungry transition is not synchronized. Offspring keep the existing
+    // species-specific birth-energy behavior.
+    float initialHerbivoreEnergyMin = 55.0f;
+    float initialHerbivoreEnergyMax = 100.0f;
+    float initialCarnivoreEnergyMin = 70.0f;
+    float initialCarnivoreEnergyMax = 130.0f;
     float carnivoreBirthEnergy = 60.0f;
     float carnivoreBreedingEnergyCost = 60.0f;
 
-    // Litter size still helps low-density recovery, but no longer creates a
-    // soft population ceiling. High density instead raises the number of meals
-    // required before the next breeding attempt.
     int herbivoreLowDensityThreshold = 100;
     int herbivoreHighDensityThreshold = 200;
     int herbivoreLowDensityOffspringMin = 2;
@@ -167,23 +150,14 @@ struct SimulationConfig {
     int grassRegrowAttempts = 8;
 };
 
-struct Population {
-    int carnivores = 0;
-    int herbivores = 0;
-    int grass = 0;
-};
-
+struct Population { int carnivores = 0; int herbivores = 0; int grass = 0; };
 struct SpeciesStatistics {
     unsigned long long births = 0;
     unsigned long long oldAgeDeaths = 0;
     unsigned long long starvationDeaths = 0;
     unsigned long long predationDeaths = 0;
 };
-
-struct SimulationStatistics {
-    SpeciesStatistics herbivore{};
-    SpeciesStatistics carnivore{};
-};
+struct SimulationStatistics { SpeciesStatistics herbivore{}; SpeciesStatistics carnivore{}; };
 
 class Simulation {
 public:
@@ -192,12 +166,10 @@ public:
     using DeathEffectArray = std::array<DeathEffect, SimulationConfig::MaxDeathEffects>;
 
     explicit Simulation(mygame::Random& random, SimulationConfig config = {});
-
     void Reset();
     void Update();
     void UpdateVisualEffects();
     void Draw() const;
-
     [[nodiscard]] Population GetPopulation() const;
     [[nodiscard]] const SimulationStatistics& GetStatistics() const { return statistics_; }
     [[nodiscard]] unsigned long long Frame() const { return frame_; }
@@ -217,20 +189,33 @@ private:
     void MoveAway(Animal& animal, const Vec2& target, float speed);
     void ClampToWorld(Animal& animal);
     void UpdateFacing(Animal& animal, float deltaX);
-
     int FindNearestAnimal(const Animal& from, Species species, float maxDistance, bool breedingPartner = false) const;
     int FindNearestGrass(const Animal& from, float maxDistance) const;
     int CountGrassNear(const Vec2& position, float radius) const;
     int RandomHerbivoreBreedTarget();
 
-    bool TrySpawnAnimal(Species species, const Vec2& position, float initialEnergy = -1.0f);
+    // Two-argument calls are used by Reset. Randomize only those initial
+    // animals; breeding code passes an explicit third argument and therefore
+    // keeps its existing offspring-energy rules.
+    bool TrySpawnAnimal(Species species, const Vec2& position) {
+        const float configuredMin = species == Species::Herbivore
+            ? config_.initialHerbivoreEnergyMin
+            : config_.initialCarnivoreEnergyMin;
+        const float configuredMax = species == Species::Herbivore
+            ? config_.initialHerbivoreEnergyMax
+            : config_.initialCarnivoreEnergyMax;
+        const float minEnergy = std::min(configuredMin, configuredMax);
+        const float maxEnergy = std::max(configuredMin, configuredMax);
+        const float initialEnergy = static_cast<float>(random_.Real(minEnergy, maxEnergy));
+        return TrySpawnAnimal(species, position, initialEnergy);
+    }
+    bool TrySpawnAnimal(Species species, const Vec2& position, float initialEnergy);
     bool TrySpawnGrass(const Vec2& position, GrassState state = GrassState::Mature, int growthTarget = 0);
     void SpawnGrassAround(const Vec2& position, int count);
     void SpawnDeathEffect(Species species, const Vec2& position);
     void KillAnimal(Animal& animal, DeathCause cause);
     void TryBreed(std::size_t index);
     void TryRegrowGrass();
-
     [[nodiscard]] float DistanceSquared(const Vec2& a, const Vec2& b) const;
     [[nodiscard]] Vec2 RandomPosition();
     [[nodiscard]] Vec2 RandomDirection();

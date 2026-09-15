@@ -125,19 +125,16 @@ struct SimulationConfig {
     float carnivoreBirthEnergy = 60.0f;
     float carnivoreBreedingEnergyCost = 60.0f;
 
-    // Herbivore litter size decreases as population density rises so a low
-    // population can recover without repeatedly rushing straight to the cap.
+    // Herbivore litter size decreases as population density rises. Once the
+    // population reaches 250, reproduction pauses before the hard cap of 300.
     int herbivoreLowDensityThreshold = 100;
-    int herbivoreHighDensityThreshold = 200;
-    // At this population or above, herbivores stop reproducing. This makes the
-    // ecological carrying capacity lower than the hard array capacity of 300.
-    int herbivoreBreedingStopThreshold = 250;
+    int herbivoreHighDensityThreshold = 250;
     int herbivoreLowDensityOffspringMin = 2;
     int herbivoreLowDensityOffspringMax = 3;
     int herbivoreMidDensityOffspringMin = 1;
     int herbivoreMidDensityOffspringMax = 2;
-    int herbivoreHighDensityOffspringMin = 1;
-    int herbivoreHighDensityOffspringMax = 1;
+    int herbivoreHighDensityOffspringMin = 0;
+    int herbivoreHighDensityOffspringMax = 0;
     int carnivoreOffspringMin = 1;
     int carnivoreOffspringMax = 1;
     // Require more successful hunts before carnivores can reproduce. This slows

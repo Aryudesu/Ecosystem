@@ -474,7 +474,7 @@ int Simulation::CountGrassNear(const Vec2& position, float radius) const {
     return count;
 }
 
-bool Simulation::TrySpawnAnimal(Species species, const Vec2& position) {
+bool Simulation::TrySpawnAnimal(Species species, const Vec2& position, float initialEnergy) {
     const std::size_t speciesLimit = species == Species::Herbivore
         ? SimulationConfig::MaxHerbivores
         : SimulationConfig::MaxCarnivores;
@@ -502,9 +502,12 @@ bool Simulation::TrySpawnAnimal(Species species, const Vec2& position) {
         animal.moving = false;
         animal.motion = AnimalMotion::Walk;
         animal.animationDistance = 0.0f;
-        animal.energy = species == Species::Herbivore
+        const float maxEnergy = species == Species::Herbivore
             ? config_.herbivoreMaxEnergy
             : config_.carnivoreMaxEnergy;
+        animal.energy = initialEnergy >= 0.0f
+            ? std::clamp(initialEnergy, 0.0f, maxEnergy)
+            : maxEnergy;
         animal.breedTarget = species == Species::Herbivore
             ? random_.Int(2, 4)
             : random_.Int(5, 7);
@@ -663,10 +666,13 @@ void Simulation::TryBreed(std::size_t index) {
     const int minOffspring = std::max(0, std::min(configuredMin, configuredMax));
     const int maxOffspring = std::max(minOffspring, std::max(configuredMin, configuredMax));
     const int offspringTarget = random_.Int(minOffspring, maxOffspring);
+    const float offspringInitialEnergy = animal.species == Species::Carnivore
+        ? config_.carnivoreBirthEnergy
+        : -1.0f;
 
     int spawnedOffspring = 0;
     for (int i = 0; i < offspringTarget; ++i) {
-        if (!TrySpawnAnimal(animal.species, childPosition)) break;
+        if (!TrySpawnAnimal(animal.species, childPosition, offspringInitialEnergy)) break;
         ++spawnedOffspring;
     }
 
@@ -675,6 +681,12 @@ void Simulation::TryBreed(std::size_t index) {
             ? statistics_.herbivore
             : statistics_.carnivore;
         speciesStats.births += static_cast<unsigned long long>(spawnedOffspring);
+
+        if (animal.species == Species::Carnivore) {
+            const float breedingCost = std::max(0.0f, config_.carnivoreBreedingEnergyCost)
+                * static_cast<float>(spawnedOffspring);
+            animal.energy = std::max(0.0f, animal.energy - breedingCost);
+        }
     }
 
     const bool herbivoreAttemptBlockedByCapacity =

@@ -129,6 +129,9 @@ struct SimulationConfig {
     // population can recover without repeatedly rushing straight to the cap.
     int herbivoreLowDensityThreshold = 100;
     int herbivoreHighDensityThreshold = 200;
+    // At this population or above, herbivores stop reproducing. This makes the
+    // ecological carrying capacity lower than the hard array capacity of 300.
+    int herbivoreBreedingStopThreshold = 250;
     int herbivoreLowDensityOffspringMin = 2;
     int herbivoreLowDensityOffspringMax = 3;
     int herbivoreMidDensityOffspringMin = 1;

@@ -120,6 +120,10 @@ struct SimulationConfig {
     float carnivoreEnergyCost = 0.10f;
     float herbivoreFoodEnergy = 42.0f;
     float carnivoreFoodEnergy = 72.0f;
+    // Carnivore reproduction transfers energy instead of creating a fully fed
+    // offspring for free. Initial carnivores still start at max energy.
+    float carnivoreBirthEnergy = 60.0f;
+    float carnivoreBreedingEnergyCost = 60.0f;
 
     // Herbivore litter size decreases as population density rises so a low
     // population can recover without repeatedly rushing straight to the cap.
@@ -209,7 +213,7 @@ private:
     int FindNearestGrass(const Animal& from, float maxDistance) const;
     int CountGrassNear(const Vec2& position, float radius) const;
 
-    bool TrySpawnAnimal(Species species, const Vec2& position);
+    bool TrySpawnAnimal(Species species, const Vec2& position, float initialEnergy = -1.0f);
     bool TrySpawnGrass(const Vec2& position, GrassState state = GrassState::Mature, int growthTarget = 0);
     void SpawnGrassAround(const Vec2& position, int count);
     void SpawnDeathEffect(Species species, const Vec2& position);

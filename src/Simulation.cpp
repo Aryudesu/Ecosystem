@@ -381,6 +381,59 @@ AnimalTraits Simulation::RandomTraits() {
     return traits;
 }
 
+AnimalTraits Simulation::InheritedTraits(const AnimalTraits& firstParent, const AnimalTraits& secondParent) {
+    const float configuredCapacityMin = std::min(config_.traitCapacityMin, config_.traitCapacityMax);
+    const float configuredCapacityMax = std::max(config_.traitCapacityMin, config_.traitCapacityMax);
+    const float capacityMin = std::max(1.0f, configuredCapacityMin);
+    const float capacityMax = std::max(capacityMin, configuredCapacityMax);
+
+    const float configuredBlendMin = std::min(config_.traitParentBlendMin, config_.traitParentBlendMax);
+    const float configuredBlendMax = std::max(config_.traitParentBlendMin, config_.traitParentBlendMax);
+    const float blendMin = std::clamp(configuredBlendMin, 0.0f, 1.0f);
+    const float blendMax = std::clamp(configuredBlendMax, blendMin, 1.0f);
+    const float secondParentWeight = static_cast<float>(random_.Real(blendMin, blendMax));
+    const float firstParentWeight = 1.0f - secondParentWeight;
+
+    AnimalTraits child{};
+    child.capacity = firstParent.capacity * firstParentWeight + secondParent.capacity * secondParentWeight;
+    const double capacityMutationChance = std::clamp(static_cast<double>(config_.traitCapacityMutationChance), 0.0, 1.0);
+    if (random_.Chance(capacityMutationChance)) {
+        const float mutationRange = std::max(0.0f, config_.traitCapacityMutationRange);
+        child.capacity += static_cast<float>(random_.Real(-mutationRange, mutationRange));
+    }
+    child.capacity = std::clamp(child.capacity, capacityMin, capacityMax);
+
+    const float firstCapacity = std::max(0.001f, firstParent.capacity);
+    const float secondCapacity = std::max(0.001f, secondParent.capacity);
+    std::array<float, 5> proportions{
+        (firstParent.speed / firstCapacity) * firstParentWeight + (secondParent.speed / secondCapacity) * secondParentWeight,
+        (firstParent.efficiency / firstCapacity) * firstParentWeight + (secondParent.efficiency / secondCapacity) * secondParentWeight,
+        (firstParent.mateSense / firstCapacity) * firstParentWeight + (secondParent.mateSense / secondCapacity) * secondParentWeight,
+        (firstParent.mateAcceptance / firstCapacity) * firstParentWeight + (secondParent.mateAcceptance / secondCapacity) * secondParentWeight,
+        (firstParent.longevity / firstCapacity) * firstParentWeight + (secondParent.longevity / secondCapacity) * secondParentWeight,
+    };
+
+    const double allocationMutationChance = std::clamp(static_cast<double>(config_.traitAllocationMutationChance), 0.0, 1.0);
+    const float mutationStrength = std::max(0.0f, config_.traitAllocationMutationStrength);
+    float proportionTotal = 0.0f;
+    for (auto& proportion : proportions) {
+        if (random_.Chance(allocationMutationChance)) {
+            const float mutation = static_cast<float>(random_.Real(-mutationStrength, mutationStrength));
+            proportion *= 1.0f + mutation;
+        }
+        proportion = std::max(0.001f, proportion);
+        proportionTotal += proportion;
+    }
+    if (proportionTotal <= 0.0f) proportionTotal = 1.0f;
+
+    child.speed = child.capacity * proportions[0] / proportionTotal;
+    child.efficiency = child.capacity * proportions[1] / proportionTotal;
+    child.mateSense = child.capacity * proportions[2] / proportionTotal;
+    child.mateAcceptance = child.capacity * proportions[3] / proportionTotal;
+    child.longevity = child.capacity * proportions[4] / proportionTotal;
+    return child;
+}
+
 float Simulation::DevelopmentFactor(const Animal& animal) const {
     const float start = std::clamp(config_.traitDevelopmentStart, 0.0f, 1.0f);
     if (animal.lifespan <= 0) return 1.0f;
@@ -437,6 +490,10 @@ float Simulation::MateAcceptanceProbability(const Animal& animal) const {
 }
 
 bool Simulation::TrySpawnAnimal(Species species, const Vec2& position, float initialEnergy) {
+    return TrySpawnAnimal(species, position, initialEnergy, RandomTraits());
+}
+
+bool Simulation::TrySpawnAnimal(Species species, const Vec2& position, float initialEnergy, const AnimalTraits& traits) {
     const std::size_t speciesLimit = species == Species::Herbivore ? SimulationConfig::MaxHerbivores : SimulationConfig::MaxCarnivores;
     std::size_t speciesCount = 0;
     for (const auto& animal : animals_) if (animal.active && animal.species == species) ++speciesCount;
@@ -453,7 +510,7 @@ bool Simulation::TrySpawnAnimal(Species species, const Vec2& position, float ini
         animal.moving = false;
         animal.motion = AnimalMotion::Walk;
         animal.animationDistance = 0.0f;
-        animal.traits = RandomTraits();
+        animal.traits = traits;
         animal.mateRetryFrames = 0;
         const float maxEnergy = species == Species::Herbivore ? config_.herbivoreMaxEnergy : config_.carnivoreMaxEnergy;
         animal.energy = initialEnergy >= 0.0f ? std::clamp(initialEnergy, 0.0f, maxEnergy) : maxEnergy;
@@ -593,7 +650,8 @@ void Simulation::TryBreed(std::size_t index) {
     const float offspringInitialEnergy = animal.species == Species::Carnivore ? config_.carnivoreBirthEnergy : -1.0f;
     int spawnedOffspring = 0;
     for (int i = 0; i < offspringTarget; ++i) {
-        if (!TrySpawnAnimal(animal.species, childPosition, offspringInitialEnergy)) break;
+        const AnimalTraits childTraits = InheritedTraits(animal.traits, partner.traits);
+        if (!TrySpawnAnimal(animal.species, childPosition, offspringInitialEnergy, childTraits)) break;
         ++spawnedOffspring;
     }
     if (spawnedOffspring > 0) {

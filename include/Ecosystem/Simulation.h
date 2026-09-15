@@ -78,8 +78,6 @@ struct SimulationConfig {
     static constexpr int WindowWidth = Width + InfoPanelWidth;
     static constexpr int WindowHeight = Height;
 
-    // Keep independent species capacities so one species cannot consume every
-    // animal slot and prevent the other species from reproducing.
     static constexpr std::size_t MaxHerbivores = 300;
     static constexpr std::size_t MaxCarnivores = 100;
     static constexpr std::size_t MaxAnimals = MaxHerbivores + MaxCarnivores;
@@ -91,6 +89,14 @@ struct SimulationConfig {
     int initialGrass = 100;
 
     float senseRadius = 64.0f;
+    float herbivoreEmergencyFleeRadius = 32.0f;
+    float carnivorePreySenseRadius = 64.0f;
+    float carnivoreDesperatePreySenseRadius = 128.0f;
+    float carnivoreCriticalPreySenseRadius = 160.0f;
+    float carnivoreDesperateEnergy = 30.0f;
+    float carnivoreCriticalEnergy = 15.0f;
+    int carnivoreReducedPreySensePopulation = 100;
+    int carnivoreBaseOnlyPreySensePopulation = 50;
     float herbivoreBreedSenseRadius = 64.0f;
     float carnivoreBreedSenseRadius = 800.0f;
     float interactionRadius = 16.0f;
@@ -106,31 +112,59 @@ struct SimulationConfig {
     float herbivoreHungryEnergy = 45.0f;
     float carnivoreHungryEnergy = 60.0f;
     float herbivoreEnergyCost = 0.10f;
-    float carnivoreEnergyCost = 0.20f;
+    float carnivoreEnergyCost = 0.10f;
     float herbivoreFoodEnergy = 42.0f;
     float carnivoreFoodEnergy = 72.0f;
+    float carnivoreBirthEnergy = 60.0f;
+    float carnivoreBreedingEnergyCost = 60.0f;
 
-    // Litter size per successful breeding event.
-    int herbivoreOffspringMin = 1;
-    int herbivoreOffspringMax = 2;
+    // Litter size still helps low-density recovery, but no longer creates a
+    // soft population ceiling. High density instead raises the number of meals
+    // required before the next breeding attempt.
+    int herbivoreLowDensityThreshold = 100;
+    int herbivoreHighDensityThreshold = 200;
+    int herbivoreLowDensityOffspringMin = 2;
+    int herbivoreLowDensityOffspringMax = 3;
+    int herbivoreMidDensityOffspringMin = 1;
+    int herbivoreMidDensityOffspringMax = 2;
+    int herbivoreHighDensityOffspringMin = 1;
+    int herbivoreHighDensityOffspringMax = 1;
+
+    int herbivoreBreedMealsThreshold1 = 100;
+    int herbivoreBreedMealsThreshold2 = 150;
+    int herbivoreBreedMealsThreshold3 = 200;
+    int herbivoreBreedMealsThreshold4 = 250;
+    int herbivoreBreedMealsMin1 = 2;
+    int herbivoreBreedMealsMax1 = 4;
+    int herbivoreBreedMealsMin2 = 3;
+    int herbivoreBreedMealsMax2 = 5;
+    int herbivoreBreedMealsMin3 = 5;
+    int herbivoreBreedMealsMax3 = 7;
+    int herbivoreBreedMealsMin4 = 8;
+    int herbivoreBreedMealsMax4 = 10;
+    int herbivoreBreedMealsMin5 = 12;
+    int herbivoreBreedMealsMax5 = 16;
+
     int carnivoreOffspringMin = 1;
     int carnivoreOffspringMax = 1;
+    int carnivoreBreedMealsMin = 8;
+    int carnivoreBreedMealsMax = 10;
 
-    // The original HSP source had a lifespan of 8-12, but aging was disabled.
-    // One age unit advances every framesPerAge simulation updates.
     int framesPerAge = 600;
     int herbivoreLifespanMin = 8;
     int herbivoreLifespanMax = 12;
     int carnivoreLifespanMin = 12;
     int carnivoreLifespanMax = 16;
 
-    // Death effects are counted in rendered frames, not simulation steps.
     int deathDisplayFrames = 30;
 
     int grassFromDeath = 5;
     int grassSeedGrowMinFrames = 100;
     int grassSeedGrowMaxFrames = 199;
     int grassRegrowFrames = 24;
+    float grassLocalDensityRadius = 32.0f;
+    int grassLocalDensityLimit = 6;
+    int grassRegrowAttempts = 8;
 };
 
 struct Population {
@@ -186,8 +220,10 @@ private:
 
     int FindNearestAnimal(const Animal& from, Species species, float maxDistance, bool breedingPartner = false) const;
     int FindNearestGrass(const Animal& from, float maxDistance) const;
+    int CountGrassNear(const Vec2& position, float radius) const;
+    int RandomHerbivoreBreedTarget();
 
-    bool TrySpawnAnimal(Species species, const Vec2& position);
+    bool TrySpawnAnimal(Species species, const Vec2& position, float initialEnergy = -1.0f);
     bool TrySpawnGrass(const Vec2& position, GrassState state = GrassState::Mature, int growthTarget = 0);
     void SpawnGrassAround(const Vec2& position, int count);
     void SpawnDeathEffect(Species species, const Vec2& position);

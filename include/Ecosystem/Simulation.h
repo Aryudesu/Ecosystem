@@ -118,9 +118,9 @@ struct SimulationConfig {
     float carnivoreBirthEnergy = 60.0f;
     float carnivoreBreedingEnergyCost = 60.0f;
 
-    // Individual traits. Capacity is fixed at birth, while only part of it is
-    // expressed in young animals. Allocations are random but normalized to the
-    // same capacity budget, preventing every trait from independently maxing.
+    // Individual traits. Initial animals receive a random capacity/allocation.
+    // Offspring inherit a blend of both parents, then receive small mutations.
+    // Allocations are always normalized back to the child's capacity budget.
     float traitCapacityMin = 90.0f;
     float traitCapacityMax = 110.0f;
     float traitAllocationWeightMin = 0.40f;
@@ -132,6 +132,12 @@ struct SimulationConfig {
     float traitMaxMultiplier = 1.35f;
     float traitCapacityEnergyBurden = 0.35f;
     float traitSpeedEnergyBurden = 0.50f;
+    float traitParentBlendMin = 0.35f;
+    float traitParentBlendMax = 0.65f;
+    float traitCapacityMutationChance = 0.25f;
+    float traitCapacityMutationRange = 2.0f;
+    float traitAllocationMutationChance = 0.20f;
+    float traitAllocationMutationStrength = 0.08f;
     float mateAcceptanceBaseProbability = 0.80f;
     int mateRejectCooldownFrames = 60;
 
@@ -226,6 +232,7 @@ private:
     int RandomHerbivoreBreedTarget();
 
     AnimalTraits RandomTraits();
+    AnimalTraits InheritedTraits(const AnimalTraits& firstParent, const AnimalTraits& secondParent);
     [[nodiscard]] float DevelopmentFactor(const Animal& animal) const;
     [[nodiscard]] float TraitMultiplier(const Animal& animal, float allocatedPoints) const;
     [[nodiscard]] float MatureTraitMultiplier(float allocatedPoints) const;
@@ -235,9 +242,8 @@ private:
     [[nodiscard]] float MateAcceptanceProbability(const Animal& animal) const;
 
     // Two-argument calls are used by Reset. Randomize only those initial
-    // animals' energy; breeding code passes an explicit third argument and
-    // therefore keeps its existing offspring-energy rules. Traits are created
-    // for every animal in the three-argument implementation.
+    // animals' energy; initial traits are random as well. Breeding passes an
+    // explicit inherited trait set through the four-argument overload.
     bool TrySpawnAnimal(Species species, const Vec2& position) {
         const float configuredMin = species == Species::Herbivore
             ? config_.initialHerbivoreEnergyMin
@@ -251,6 +257,7 @@ private:
         return TrySpawnAnimal(species, position, initialEnergy);
     }
     bool TrySpawnAnimal(Species species, const Vec2& position, float initialEnergy);
+    bool TrySpawnAnimal(Species species, const Vec2& position, float initialEnergy, const AnimalTraits& traits);
     bool TrySpawnGrass(const Vec2& position, GrassState state = GrassState::Mature, int growthTarget = 0);
     void SpawnGrassAround(const Vec2& position, int count);
     void SpawnDeathEffect(Species species, const Vec2& position);

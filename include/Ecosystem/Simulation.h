@@ -137,6 +137,10 @@ struct SimulationConfig {
     int herbivoreHighDensityOffspringMax = 1;
     int carnivoreOffspringMin = 1;
     int carnivoreOffspringMax = 1;
+    // Require more successful hunts before carnivores can reproduce. This slows
+    // predator growth without changing mate search or hunting behavior.
+    int carnivoreBreedMealsMin = 8;
+    int carnivoreBreedMealsMax = 10;
 
     // The original HSP source had a lifespan of 8-12, but aging was disabled.
     // One age unit advances every framesPerAge simulation updates.

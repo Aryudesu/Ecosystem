@@ -17,6 +17,18 @@ enum class GrassState { Mature, Seed };
 enum class AnimalMotion { Walk, Run };
 enum class DeathCause { OldAge, Starvation, Predation };
 
+struct AnimalTraits {
+    // capacity is the total trait budget fixed at birth. The five allocations
+    // below always share that budget, so one strong trait necessarily leaves
+    // less room for the others.
+    float capacity = 100.0f;
+    float speed = 20.0f;
+    float efficiency = 20.0f;
+    float mateSense = 20.0f;
+    float mateAcceptance = 20.0f;
+    float longevity = 20.0f;
+};
+
 struct Animal {
     bool active = false;
     Species species = Species::Herbivore;
@@ -33,6 +45,8 @@ struct Animal {
     int age = 0;
     int ageFrames = 0;
     int lifespan = 0;
+    int mateRetryFrames = 0;
+    AnimalTraits traits{};
 };
 
 struct Grass {
@@ -103,6 +117,23 @@ struct SimulationConfig {
     float initialCarnivoreEnergyMax = 130.0f;
     float carnivoreBirthEnergy = 60.0f;
     float carnivoreBreedingEnergyCost = 60.0f;
+
+    // Individual traits. Capacity is fixed at birth, while only part of it is
+    // expressed in young animals. Allocations are random but normalized to the
+    // same capacity budget, preventing every trait from independently maxing.
+    float traitCapacityMin = 90.0f;
+    float traitCapacityMax = 110.0f;
+    float traitAllocationWeightMin = 0.40f;
+    float traitAllocationWeightMax = 1.60f;
+    float traitReferenceCapacity = 100.0f;
+    float traitBaselinePoints = 20.0f;
+    float traitDevelopmentStart = 0.80f;
+    float traitMinMultiplier = 0.65f;
+    float traitMaxMultiplier = 1.35f;
+    float traitCapacityEnergyBurden = 0.35f;
+    float traitSpeedEnergyBurden = 0.50f;
+    float mateAcceptanceBaseProbability = 0.80f;
+    int mateRejectCooldownFrames = 60;
 
     int herbivoreLowDensityThreshold = 100;
     int herbivoreHighDensityThreshold = 200;
@@ -194,9 +225,19 @@ private:
     int CountGrassNear(const Vec2& position, float radius) const;
     int RandomHerbivoreBreedTarget();
 
+    AnimalTraits RandomTraits();
+    [[nodiscard]] float DevelopmentFactor(const Animal& animal) const;
+    [[nodiscard]] float TraitMultiplier(const Animal& animal, float allocatedPoints) const;
+    [[nodiscard]] float MatureTraitMultiplier(float allocatedPoints) const;
+    [[nodiscard]] float SpeedMultiplier(const Animal& animal) const;
+    [[nodiscard]] float EnergyCostMultiplier(const Animal& animal) const;
+    [[nodiscard]] float MateSenseMultiplier(const Animal& animal) const;
+    [[nodiscard]] float MateAcceptanceProbability(const Animal& animal) const;
+
     // Two-argument calls are used by Reset. Randomize only those initial
-    // animals; breeding code passes an explicit third argument and therefore
-    // keeps its existing offspring-energy rules.
+    // animals' energy; breeding code passes an explicit third argument and
+    // therefore keeps its existing offspring-energy rules. Traits are created
+    // for every animal in the three-argument implementation.
     bool TrySpawnAnimal(Species species, const Vec2& position) {
         const float configuredMin = species == Species::Herbivore
             ? config_.initialHerbivoreEnergyMin

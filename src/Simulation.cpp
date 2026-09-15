@@ -508,9 +508,18 @@ bool Simulation::TrySpawnAnimal(Species species, const Vec2& position, float ini
         animal.energy = initialEnergy >= 0.0f
             ? std::clamp(initialEnergy, 0.0f, maxEnergy)
             : maxEnergy;
-        animal.breedTarget = species == Species::Herbivore
-            ? random_.Int(2, 4)
-            : random_.Int(5, 7);
+
+        if (species == Species::Herbivore) {
+            animal.breedTarget = random_.Int(2, 4);
+        } else {
+            const int minBreedMeals = std::max(
+                1,
+                std::min(config_.carnivoreBreedMealsMin, config_.carnivoreBreedMealsMax));
+            const int maxBreedMeals = std::max(
+                minBreedMeals,
+                std::max(config_.carnivoreBreedMealsMin, config_.carnivoreBreedMealsMax));
+            animal.breedTarget = random_.Int(minBreedMeals, maxBreedMeals);
+        }
         animal.age = 0;
         animal.ageFrames = 0;
 
@@ -697,9 +706,17 @@ void Simulation::TryBreed(std::size_t index) {
         // This avoids accumulating a large queue of ready-to-breed animals that
         // instantly refill every slot opened by predation.
         animal.meals = 0;
-        animal.breedTarget = animal.species == Species::Herbivore
-            ? random_.Int(2, 4)
-            : random_.Int(5, 7);
+        if (animal.species == Species::Herbivore) {
+            animal.breedTarget = random_.Int(2, 4);
+        } else {
+            const int minBreedMeals = std::max(
+                1,
+                std::min(config_.carnivoreBreedMealsMin, config_.carnivoreBreedMealsMax));
+            const int maxBreedMeals = std::max(
+                minBreedMeals,
+                std::max(config_.carnivoreBreedMealsMin, config_.carnivoreBreedMealsMax));
+            animal.breedTarget = random_.Int(minBreedMeals, maxBreedMeals);
+        }
         animal.state = LifeState::Normal;
     }
 }

@@ -35,8 +35,12 @@ void Simulation::Update() {
         auto& animal = animals_[i];
         animal.moving = false;
         animal.motion = AnimalMotion::Walk;
+        if (animal.mateRetryFrames > 0) --animal.mateRetryFrames;
         if (AdvanceAge(animal)) continue;
-        animal.energy -= animal.species == Species::Herbivore ? config_.herbivoreEnergyCost : config_.carnivoreEnergyCost;
+        const float baseEnergyCost = animal.species == Species::Herbivore
+            ? config_.herbivoreEnergyCost
+            : config_.carnivoreEnergyCost;
+        animal.energy -= baseEnergyCost * EnergyCostMultiplier(animal);
         if (animal.energy <= 0.0f) {
             KillAnimal(animal, DeathCause::Starvation);
             continue;
@@ -185,11 +189,12 @@ void Simulation::UpdateCarnivore(std::size_t index) {
 
 void Simulation::Wander(Animal& animal, float speed) {
     if (random_.Chance(0.025)) animal.wanderDirection = RandomDirection();
-    const float deltaX = animal.wanderDirection.x * speed;
-    const float deltaY = animal.wanderDirection.y * speed;
+    const float actualSpeed = std::max(0.0f, speed * SpeedMultiplier(animal));
+    const float deltaX = animal.wanderDirection.x * actualSpeed;
+    const float deltaY = animal.wanderDirection.y * actualSpeed;
     UpdateFacing(animal, deltaX);
     animal.moving = true;
-    animal.animationDistance += std::abs(speed);
+    animal.animationDistance += std::abs(actualSpeed);
     animal.position.x += deltaX;
     animal.position.y += deltaY;
 }
@@ -199,11 +204,12 @@ void Simulation::MoveToward(Animal& animal, const Vec2& target, float speed) {
     const float dy = target.y - animal.position.y;
     const float length = std::sqrt(dx * dx + dy * dy);
     if (length <= 0.0001f) return;
-    const float deltaX = dx / length * speed;
-    const float deltaY = dy / length * speed;
+    const float actualSpeed = std::max(0.0f, speed * SpeedMultiplier(animal));
+    const float deltaX = dx / length * actualSpeed;
+    const float deltaY = dy / length * actualSpeed;
     UpdateFacing(animal, deltaX);
     animal.moving = true;
-    animal.animationDistance += std::abs(speed);
+    animal.animationDistance += std::abs(actualSpeed);
     animal.position.x += deltaX;
     animal.position.y += deltaY;
 }
@@ -211,6 +217,7 @@ void Simulation::MoveToward(Animal& animal, const Vec2& target, float speed) {
 void Simulation::MoveAway(Animal& animal, const Vec2& target, float speed) {
     constexpr int EscapeDirectionCount = 16;
     constexpr float ScoreEpsilon = 0.0001f;
+    const float actualSpeed = std::max(0.0f, speed * SpeedMultiplier(animal));
     const float maxX = static_cast<float>(SimulationConfig::Width - 1);
     const float maxY = static_cast<float>(SimulationConfig::Height - 1);
     bool hasPredator = false;
@@ -222,8 +229,8 @@ void Simulation::MoveAway(Animal& animal, const Vec2& target, float speed) {
         const float dy = animal.position.y - target.y;
         const float length = std::sqrt(dx * dx + dy * dy);
         if (length <= 0.0001f) return;
-        const float nextX = std::clamp(animal.position.x + dx / length * speed, 0.0f, maxX);
-        const float nextY = std::clamp(animal.position.y + dy / length * speed, 0.0f, maxY);
+        const float nextX = std::clamp(animal.position.x + dx / length * actualSpeed, 0.0f, maxX);
+        const float nextY = std::clamp(animal.position.y + dy / length * actualSpeed, 0.0f, maxY);
         const float deltaX = nextX - animal.position.x;
         const float deltaY = nextY - animal.position.y;
         UpdateFacing(animal, deltaX);
@@ -241,8 +248,8 @@ void Simulation::MoveAway(Animal& animal, const Vec2& target, float speed) {
     float bestDeltaY = 0.0f;
     for (int directionIndex = 0; directionIndex < EscapeDirectionCount; ++directionIndex) {
         const float angle = 2.0f * Pi * static_cast<float>(directionIndex) / static_cast<float>(EscapeDirectionCount);
-        const float deltaX = std::cos(angle) * speed;
-        const float deltaY = std::sin(angle) * speed;
+        const float deltaX = std::cos(angle) * actualSpeed;
+        const float deltaY = std::sin(angle) * actualSpeed;
         const float candidateX = animal.position.x + deltaX;
         const float candidateY = animal.position.y + deltaY;
         if (candidateX < 0.0f || candidateX > maxX || candidateY < 0.0f || candidateY > maxY) continue;
@@ -345,6 +352,90 @@ int Simulation::RandomHerbivoreBreedTarget() {
     return random_.Int(safeMin, safeMax);
 }
 
+AnimalTraits Simulation::RandomTraits() {
+    AnimalTraits traits{};
+    const float configuredCapacityMin = std::min(config_.traitCapacityMin, config_.traitCapacityMax);
+    const float configuredCapacityMax = std::max(config_.traitCapacityMin, config_.traitCapacityMax);
+    const float capacityMin = std::max(1.0f, configuredCapacityMin);
+    const float capacityMax = std::max(capacityMin, configuredCapacityMax);
+    traits.capacity = static_cast<float>(random_.Real(capacityMin, capacityMax));
+
+    const float configuredWeightMin = std::min(config_.traitAllocationWeightMin, config_.traitAllocationWeightMax);
+    const float configuredWeightMax = std::max(config_.traitAllocationWeightMin, config_.traitAllocationWeightMax);
+    const float weightMin = std::max(0.01f, configuredWeightMin);
+    const float weightMax = std::max(weightMin, configuredWeightMax);
+
+    std::array<float, 5> weights{};
+    float weightTotal = 0.0f;
+    for (auto& weight : weights) {
+        weight = static_cast<float>(random_.Real(weightMin, weightMax));
+        weightTotal += weight;
+    }
+    if (weightTotal <= 0.0f) weightTotal = 1.0f;
+
+    traits.speed = traits.capacity * weights[0] / weightTotal;
+    traits.efficiency = traits.capacity * weights[1] / weightTotal;
+    traits.mateSense = traits.capacity * weights[2] / weightTotal;
+    traits.mateAcceptance = traits.capacity * weights[3] / weightTotal;
+    traits.longevity = traits.capacity * weights[4] / weightTotal;
+    return traits;
+}
+
+float Simulation::DevelopmentFactor(const Animal& animal) const {
+    const float start = std::clamp(config_.traitDevelopmentStart, 0.0f, 1.0f);
+    if (animal.lifespan <= 0) return 1.0f;
+
+    float preciseAge = static_cast<float>(animal.age);
+    if (config_.framesPerAge > 0) {
+        preciseAge += static_cast<float>(animal.ageFrames) / static_cast<float>(config_.framesPerAge);
+    }
+    const float ageProgress = std::clamp(preciseAge / static_cast<float>(animal.lifespan), 0.0f, 1.0f);
+    const float referenceCapacity = std::max(1.0f, config_.traitReferenceCapacity);
+    const float growthExponent = std::clamp(animal.traits.capacity / referenceCapacity, 0.5f, 1.5f);
+    const float adjustedProgress = std::pow(ageProgress, growthExponent);
+    return start + (1.0f - start) * adjustedProgress;
+}
+
+float Simulation::MatureTraitMultiplier(float allocatedPoints) const {
+    const float minimum = std::min(config_.traitMinMultiplier, config_.traitMaxMultiplier);
+    const float maximum = std::max(config_.traitMinMultiplier, config_.traitMaxMultiplier);
+    const float baseline = std::max(0.001f, config_.traitBaselinePoints);
+    const float points = std::max(0.0f, allocatedPoints);
+    const float saturation = points / (points + baseline);
+    return minimum + (maximum - minimum) * saturation;
+}
+
+float Simulation::TraitMultiplier(const Animal& animal, float allocatedPoints) const {
+    return MatureTraitMultiplier(std::max(0.0f, allocatedPoints) * DevelopmentFactor(animal));
+}
+
+float Simulation::SpeedMultiplier(const Animal& animal) const {
+    return TraitMultiplier(animal, animal.traits.speed);
+}
+
+float Simulation::EnergyCostMultiplier(const Animal& animal) const {
+    const float efficiency = std::max(0.10f, TraitMultiplier(animal, animal.traits.efficiency));
+    const float speed = SpeedMultiplier(animal);
+    const float referenceCapacity = std::max(1.0f, config_.traitReferenceCapacity);
+    const float capacityRatio = animal.traits.capacity / referenceCapacity;
+    const float capacityBurden = std::max(
+        0.50f,
+        1.0f + (capacityRatio - 1.0f) * std::max(0.0f, config_.traitCapacityEnergyBurden));
+    const float speedBurden = 1.0f
+        + std::max(0.0f, speed - 1.0f) * std::max(0.0f, config_.traitSpeedEnergyBurden);
+    return std::max(0.10f, capacityBurden * speedBurden / efficiency);
+}
+
+float Simulation::MateSenseMultiplier(const Animal& animal) const {
+    return TraitMultiplier(animal, animal.traits.mateSense);
+}
+
+float Simulation::MateAcceptanceProbability(const Animal& animal) const {
+    const float acceptance = std::max(0.0f, config_.mateAcceptanceBaseProbability)
+        * TraitMultiplier(animal, animal.traits.mateAcceptance);
+    return std::clamp(acceptance, 0.05f, 1.0f);
+}
+
 bool Simulation::TrySpawnAnimal(Species species, const Vec2& position, float initialEnergy) {
     const std::size_t speciesLimit = species == Species::Herbivore ? SimulationConfig::MaxHerbivores : SimulationConfig::MaxCarnivores;
     std::size_t speciesCount = 0;
@@ -362,6 +453,8 @@ bool Simulation::TrySpawnAnimal(Species species, const Vec2& position, float ini
         animal.moving = false;
         animal.motion = AnimalMotion::Walk;
         animal.animationDistance = 0.0f;
+        animal.traits = RandomTraits();
+        animal.mateRetryFrames = 0;
         const float maxEnergy = species == Species::Herbivore ? config_.herbivoreMaxEnergy : config_.carnivoreMaxEnergy;
         animal.energy = initialEnergy >= 0.0f ? std::clamp(initialEnergy, 0.0f, maxEnergy) : maxEnergy;
         if (species == Species::Herbivore) {
@@ -377,7 +470,10 @@ bool Simulation::TrySpawnAnimal(Species species, const Vec2& position, float ini
         const int configuredMaxLifespan = species == Species::Herbivore ? config_.herbivoreLifespanMax : config_.carnivoreLifespanMax;
         const int minLifespan = std::max(1, std::min(configuredMinLifespan, configuredMaxLifespan));
         const int maxLifespan = std::max(minLifespan, std::max(configuredMinLifespan, configuredMaxLifespan));
-        animal.lifespan = random_.Int(minLifespan, maxLifespan);
+        const int baseLifespan = random_.Int(minLifespan, maxLifespan);
+        const float longevityMultiplier = MatureTraitMultiplier(animal.traits.longevity);
+        const float longevityScale = 0.50f + 0.50f * longevityMultiplier;
+        animal.lifespan = std::max(1, static_cast<int>(std::round(static_cast<float>(baseLifespan) * longevityScale)));
         return true;
     }
     return false;
@@ -440,17 +536,39 @@ void Simulation::KillAnimal(Animal& animal, DeathCause cause) {
 
 void Simulation::TryBreed(std::size_t index) {
     auto& animal = animals_[index];
-    const float breedSenseRadius = animal.species == Species::Herbivore ? config_.herbivoreBreedSenseRadius : config_.carnivoreBreedSenseRadius;
+    const float baseBreedSenseRadius = animal.species == Species::Herbivore
+        ? config_.herbivoreBreedSenseRadius
+        : config_.carnivoreBreedSenseRadius;
+    const float breedSenseRadius = std::max(0.0f, baseBreedSenseRadius * MateSenseMultiplier(animal));
+    const float breedMoveSpeed = animal.species == Species::Herbivore
+        ? config_.herbivoreFoodSpeed
+        : config_.carnivoreChaseSpeed;
+    const float wanderSpeed = animal.species == Species::Herbivore
+        ? config_.herbivoreWanderSpeed
+        : config_.carnivoreWanderSpeed;
+
+    if (animal.mateRetryFrames > 0) {
+        Wander(animal, wanderSpeed);
+        return;
+    }
+
     const int partnerIndex = FindNearestAnimal(animal, animal.species, breedSenseRadius, true);
     if (partnerIndex < 0) {
-        Wander(animal, animal.species == Species::Herbivore ? config_.herbivoreWanderSpeed : config_.carnivoreWanderSpeed);
+        Wander(animal, wanderSpeed);
         return;
     }
     auto& partner = animals_[static_cast<std::size_t>(partnerIndex)];
     if (DistanceSquared(animal.position, partner.position) > config_.interactionRadius * config_.interactionRadius) {
-        MoveToward(animal, partner.position, animal.species == Species::Herbivore ? config_.herbivoreFoodSpeed : config_.carnivoreChaseSpeed);
+        MoveToward(animal, partner.position, breedMoveSpeed);
         return;
     }
+
+    if (!random_.Chance(MateAcceptanceProbability(partner))) {
+        animal.mateRetryFrames = std::max(0, config_.mateRejectCooldownFrames);
+        Wander(animal, wanderSpeed);
+        return;
+    }
+
     const Vec2 childPosition{ (animal.position.x + partner.position.x) * 0.5f, (animal.position.y + partner.position.y) * 0.5f };
     int configuredMin = config_.carnivoreOffspringMin;
     int configuredMax = config_.carnivoreOffspringMax;
